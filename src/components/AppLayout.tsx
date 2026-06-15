@@ -39,12 +39,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         <Sidebar forceExpanded />
         {/* Floating Close Button for Mobile Menu */}
-        <button 
-          onClick={() => setMobileMenuOpen(false)}
-          className="absolute top-4 right-[-48px] bg-sidebar-bg p-2 rounded-r border-y border-r border-border-custom text-text-main hover:text-primary-gold shadow-md"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {mobileMenuOpen && (
+          <button 
+            onClick={() => setMobileMenuOpen(false)}
+            className="absolute top-4 right-[-48px] bg-sidebar-bg p-2 rounded-r border-y border-r border-border-custom text-text-main hover:text-primary-gold shadow-md"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Main Container */}

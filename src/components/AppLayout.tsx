@@ -31,7 +31,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <Sidebar />
+        <Sidebar forceExpanded />
         {/* Floating Close Button for Mobile Menu */}
         <button 
           onClick={() => setMobileMenuOpen(false)}

@@ -17,9 +17,11 @@ import {
   CircleDot
 } from 'lucide-react';
 
-export default function Sidebar() {
+export default function Sidebar({ forceExpanded = false }: { forceExpanded?: boolean }) {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useExcelLedgerStore();
+
+  const isCollapsed = sidebarCollapsed && !forceExpanded;
 
   const isActive = (path: string) => pathname === path;
 
@@ -55,12 +57,12 @@ export default function Sidebar() {
   return (
     <aside 
       className={`bg-sidebar-bg border-r border-border-custom flex flex-col transition-all duration-300 ease-in-out ${
-        sidebarCollapsed ? 'w-16' : 'w-64'
+        isCollapsed ? 'w-16' : 'w-64'
       } min-h-screen select-none relative`}
     >
       {/* Brand Header */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-border-custom">
-        {!sidebarCollapsed && (
+        {!isCollapsed && (
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 rounded bg-primary-gold flex items-center justify-center font-bold text-white text-sm shadow-sm">
               AL
@@ -71,7 +73,7 @@ export default function Sidebar() {
             </div>
           </div>
         )}
-        {sidebarCollapsed && (
+        {isCollapsed && (
           <div className="w-8 h-8 rounded bg-primary-gold flex items-center justify-center font-bold text-white text-xs mx-auto shadow-sm">
             AL
           </div>
@@ -94,7 +96,7 @@ export default function Sidebar() {
             >
               <div className="flex items-center space-x-3">
                 {renderIcon(item.icon, active)}
-                {!sidebarCollapsed && <span>{item.label}</span>}
+                {!isCollapsed && <span>{item.label}</span>}
               </div>
             </Link>
           );
@@ -102,15 +104,17 @@ export default function Sidebar() {
       </nav>
 
       {/* Collapse Button */}
-      <div className="p-3 border-t border-border-custom flex items-center justify-center">
-        <button 
-          onClick={toggleSidebar}
-          className="p-2 rounded-md hover:bg-bg-app text-text-muted hover:text-text-main transition-colors w-full flex justify-center items-center gap-2"
-        >
-          <Menu className="w-4 h-4" />
-          {!sidebarCollapsed && <span className="text-xs font-medium">Collapse Menu</span>}
-        </button>
-      </div>
+      {!forceExpanded && (
+        <div className="p-3 border-t border-border-custom flex items-center justify-center">
+          <button 
+            onClick={toggleSidebar}
+            className="p-2 rounded-md hover:bg-bg-app text-text-muted hover:text-text-main transition-colors w-full flex justify-center items-center gap-2"
+          >
+            <Menu className="w-4 h-4" />
+            {!isCollapsed && <span className="text-xs font-medium">Collapse Menu</span>}
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

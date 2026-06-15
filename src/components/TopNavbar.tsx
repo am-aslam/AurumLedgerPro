@@ -59,9 +59,9 @@ export default function TopNavbar() {
       <div className="flex items-center space-x-6">
         
         {/* Static Corporate Vault Indicator */}
-        <div className="flex items-center space-x-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-text-main border border-primary-gold bg-primary-gold/5 rounded">
+        <div className="flex items-center space-x-2 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-text-main border border-primary-gold bg-primary-gold/5 rounded">
           <Building className="w-3.5 h-3.5 text-primary-gold" />
-          <span>Aurumledger Pro</span>
+          <span className="hidden sm:inline">Aurumledger Pro</span>
         </div>
 
         {/* Global Search Bar */}
@@ -126,8 +126,8 @@ export default function TopNavbar() {
         </div>
 
         {/* Live Gold Rate Widget */}
-        <div className="flex items-center space-x-2 bg-bg-app border border-border-custom rounded px-3 py-1.5 select-none">
-          <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Gold Spot:</span>
+        <div className="items-center space-x-2 bg-bg-app border border-border-custom rounded px-2.5 py-1.5 select-none hidden sm:flex">
+          <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider hidden md:inline">Gold Spot:</span>
           <span className="text-xs font-semibold text-text-main">
             {currencySymbol}{convertedGoldRate.toFixed(2)}/g
           </span>

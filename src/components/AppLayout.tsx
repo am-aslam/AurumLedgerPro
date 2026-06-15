@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import TopNavbar from './TopNavbar';
 import { useExcelLedgerStore } from '@/store/useExcelLedgerStore';
@@ -9,6 +10,11 @@ import { Menu, X } from 'lucide-react';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { sidebarCollapsed } = useExcelLedgerStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   return (
     <div className="min-h-screen flex bg-bg-app text-fg-app font-sans antialiased overflow-hidden">

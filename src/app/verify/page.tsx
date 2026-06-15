@@ -8,9 +8,16 @@ export default function VerificationPage() {
   const router = useRouter();
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const demoCode = '882045';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (code !== demoCode) {
+      setErrorMsg('Invalid verification code. Please enter the simulated code.');
+      return;
+    }
+    setErrorMsg('');
     setIsLoading(true);
 
     setTimeout(() => {
@@ -30,12 +37,24 @@ export default function VerificationPage() {
           Verify your credentials
         </h2>
         <p className="mt-1.5 text-xs text-text-muted">
-          A 6-digit OTP verification code has been dispatched to your email
+          A simulated 6-digit OTP verification code has been generated for your node
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-card-bg py-8 px-4 border border-border-custom rounded-md shadow-sm sm:px-10">
+          
+          <div className="bg-primary-gold/5 border border-primary-gold/25 p-3 rounded text-center mb-5 select-none animate-in fade-in duration-300">
+            <span className="text-[9px] font-bold text-text-muted uppercase tracking-widest block">Simulated OTP Code</span>
+            <span className="text-base font-extrabold text-primary-gold tracking-widest block mt-0.5">{demoCode}</span>
+          </div>
+
+          {errorMsg && (
+            <div className="bg-danger-custom/10 border border-danger-custom/25 p-2.5 rounded text-center text-[11px] font-semibold text-danger-custom mb-4 animate-in fade-in">
+              {errorMsg}
+            </div>
+          )}
+
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="flex flex-col space-y-1">
               <label htmlFor="code" className="text-[10px] font-bold text-text-muted uppercase tracking-wider text-center">

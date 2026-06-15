@@ -50,18 +50,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 relative h-screen overflow-hidden">
         {/* Top Navigation */}
-        <div className="flex items-center">
-          {/* Mobile Menu Trigger */}
-          <button 
-            onClick={() => setMobileMenuOpen(true)}
-            className="p-4 md:hidden border-b border-border-custom bg-sidebar-bg text-text-muted hover:text-text-main hover:bg-bg-app transition-colors"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <TopNavbar />
-          </div>
-        </div>
+        <TopNavbar onMenuClick={() => setMobileMenuOpen(true)} />
 
         {/* Content Viewport */}
         <main className="flex-1 overflow-y-auto scrollbar-thin p-6 md:p-8 bg-bg-app">

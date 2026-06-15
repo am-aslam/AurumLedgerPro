@@ -12,10 +12,11 @@ import {
   Building,
   User,
   LogOut,
-  Sliders
+  Sliders,
+  Menu
 } from 'lucide-react';
 
-export default function TopNavbar() {
+export default function TopNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter();
   const { 
     themeMode, 
@@ -26,7 +27,8 @@ export default function TopNavbar() {
     selectedCurrency,
     setSelectedCurrency,
     globalSearchQuery,
-    setGlobalSearchQuery
+    setGlobalSearchQuery,
+    currentUser
   } = useExcelLedgerStore();
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
@@ -53,10 +55,19 @@ export default function TopNavbar() {
     : [];
 
   return (
-    <header className="h-16 border-b border-border-custom bg-sidebar-bg px-6 flex items-center justify-between select-none relative z-40">
+    <header className="h-16 border-b border-border-custom bg-sidebar-bg px-4 md:px-6 flex items-center justify-between select-none relative z-40">
       
       {/* Left Search / Static Brand Name */}
-      <div className="flex items-center space-x-6">
+      <div className="flex items-center space-x-3 md:space-x-6">
+        {onMenuClick && (
+          <button 
+            onClick={onMenuClick}
+            className="p-1.5 md:hidden text-text-muted hover:text-text-main hover:bg-bg-app rounded transition-colors mr-0.5"
+            aria-label="Toggle Navigation Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
         
         {/* Static Corporate Vault Indicator */}
         <div className="flex items-center space-x-2 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-text-main border border-primary-gold bg-primary-gold/5 rounded">
@@ -106,10 +117,10 @@ export default function TopNavbar() {
       </div>
 
       {/* Right Widgets: Currency Switcher, Gold Rate, Notifications, Theme, Profile */}
-      <div className="flex items-center space-x-5">
+      <div className="flex items-center space-x-2 md:space-x-4">
         
         {/* Currency Switcher Toggle */}
-        <div className="inline-flex rounded border border-border-custom bg-bg-app p-0.5 items-center">
+        <div className="hidden md:inline-flex rounded border border-border-custom bg-bg-app p-0.5 items-center">
           {(['USD', 'INR', 'AED', 'EUR'] as const).map(cur => (
             <button
               key={cur}
@@ -123,6 +134,20 @@ export default function TopNavbar() {
               {cur}
             </button>
           ))}
+        </div>
+
+        {/* Responsive Currency Dropdown */}
+        <div className="md:hidden">
+          <select
+            value={selectedCurrency}
+            onChange={(e) => setSelectedCurrency(e.target.value as any)}
+            className="bg-bg-app border border-border-custom rounded px-1.5 py-1 text-[9px] font-extrabold text-text-main focus:outline-none focus:border-primary-gold"
+          >
+            <option value="USD">USD</option>
+            <option value="INR">INR</option>
+            <option value="AED">AED</option>
+            <option value="EUR">EUR</option>
+          </select>
         </div>
 
         {/* Live Gold Rate Widget */}
@@ -173,7 +198,7 @@ export default function TopNavbar() {
               <User className="w-4 h-4 text-text-main" />
             </div>
             <div className="text-left hidden lg:block">
-              <span className="text-xs font-semibold text-text-main block leading-none">Alexander Wright</span>
+              <span className="text-xs font-semibold text-text-main block leading-none">{currentUser?.name || 'Alexander Wright'}</span>
               <span className="text-[9px] text-text-muted block font-medium">Head Auditor</span>
             </div>
             <ChevronDown className="w-3 h-3 text-text-muted" />
@@ -182,8 +207,8 @@ export default function TopNavbar() {
           {showProfileDropdown && (
             <div className="absolute right-0 mt-2 w-48 bg-sidebar-bg border border-border-custom rounded-md shadow-lg py-1 text-sm text-text-main z-50 animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="px-4 py-2 border-b border-border-custom">
-                <span className="text-xs font-bold block">Alexander Wright</span>
-                <span className="text-[10px] text-text-muted">alex.wright@aurumledger.pro</span>
+                <span className="text-xs font-bold block">{currentUser?.name || 'Alexander Wright'}</span>
+                <span className="text-[10px] text-text-muted">{currentUser?.email || 'alex.wright@aurumledger.pro'}</span>
               </div>
               <a href="/settings" className="flex items-center px-4 py-2 text-xs font-medium hover:bg-bg-app text-text-main transition-colors">
                 <Sliders className="w-3.5 h-3.5 mr-2 text-text-muted" />

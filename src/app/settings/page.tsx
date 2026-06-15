@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import AppLayout from '@/components/AppLayout';
+import { useExcelLedgerStore } from '@/store/useExcelLedgerStore';
 import { 
   Settings, 
   Building, 
@@ -15,10 +16,11 @@ import {
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'company' | 'users' | 'backup'>('company');
+  const { currentUser } = useExcelLedgerStore();
 
   // Mock Users List
   const users = [
-    { name: 'Alexander Wright', email: 'alex.wright@aurumledger.pro', role: 'Super Admin', status: 'Active' },
+    { name: currentUser?.name || 'Alexander Wright', email: currentUser?.email || 'alex.wright@aurumledger.pro', role: 'Super Admin', status: 'Active' },
     { name: 'Elena Rostova', email: 'elena.rostova@aurumledger.pro', role: 'Operator', status: 'Active' },
     { name: 'Marcus Vance', email: 'marcus.vance@aurumledger.pro', role: 'Viewer', status: 'Active' }
   ];

@@ -47,6 +47,11 @@ export interface PartnerCapital {
   }>;
 }
 
+export interface UserSession {
+  name: string;
+  email: string;
+}
+
 interface ExcelLedgerState {
   accounts: Account[];
   partners: PartnerCapital[];
@@ -59,6 +64,8 @@ interface ExcelLedgerState {
   setSelectedCurrency: (currency: 'USD' | 'INR' | 'AED' | 'EUR') => void;
   globalSearchQuery: string;
   setGlobalSearchQuery: (query: string) => void;
+  currentUser: UserSession;
+  setCurrentUser: (user: UserSession) => void;
 
   // Actions
   setActiveAccountId: (id: string) => void;
@@ -201,6 +208,8 @@ export const useExcelLedgerStore = create<ExcelLedgerState>((set) => ({
   setSelectedCurrency: (currency) => set({ selectedCurrency: currency }),
   globalSearchQuery: '',
   setGlobalSearchQuery: (query) => set({ globalSearchQuery: query }),
+  currentUser: { name: 'Alexander Wright', email: 'alex.wright@aurumledger.pro' },
+  setCurrentUser: (user) => set({ currentUser: user }),
 
   setActiveAccountId: (id) => set({ activeAccountId: id }),
   setSelectedRowId: (id) => set({ selectedRowId: id }),

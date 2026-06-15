@@ -52,6 +52,13 @@ export interface UserSession {
   email: string;
 }
 
+export interface VaultUser {
+  name: string;
+  email: string;
+  role: 'Super Admin' | 'Operator' | 'Viewer';
+  status: 'Active' | 'Inactive';
+}
+
 interface ExcelLedgerState {
   accounts: Account[];
   partners: PartnerCapital[];
@@ -66,6 +73,8 @@ interface ExcelLedgerState {
   setGlobalSearchQuery: (query: string) => void;
   currentUser: UserSession;
   setCurrentUser: (user: UserSession) => void;
+  vaultUsers: VaultUser[];
+  addVaultUser: (user: Omit<VaultUser, 'status'>) => void;
 
   // Actions
   setActiveAccountId: (id: string) => void;
@@ -210,6 +219,8 @@ export const useExcelLedgerStore = create<ExcelLedgerState>((set) => ({
   setGlobalSearchQuery: (query) => set({ globalSearchQuery: query }),
   currentUser: { name: 'Alexander Wright', email: 'alex.wright@aurumledger.pro' },
   setCurrentUser: (user) => set({ currentUser: user }),
+  vaultUsers: [],
+  addVaultUser: (user) => set((state) => ({ vaultUsers: [...state.vaultUsers, { ...user, status: 'Active' }] })),
 
   setActiveAccountId: (id) => set({ activeAccountId: id }),
   setSelectedRowId: (id) => set({ selectedRowId: id }),

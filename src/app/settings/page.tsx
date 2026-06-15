@@ -11,23 +11,43 @@ import {
   ShieldAlert, 
   FileSpreadsheet, 
   Database,
-  CheckCircle2
+  CheckCircle2,
+  X
 } from 'lucide-react';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'company' | 'users' | 'backup'>('company');
-  const { currentUser } = useExcelLedgerStore();
+  const { currentUser, vaultUsers, addVaultUser } = useExcelLedgerStore();
 
-  // Mock Users List
+  // Modal form states
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteName, setInviteName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'Super Admin' | 'Operator' | 'Viewer'>('Operator');
+
+  // Dynamic user list with logged-in user as primary
   const users = [
     { name: currentUser?.name || 'Alexander Wright', email: currentUser?.email || 'alex.wright@aurumledger.pro', role: 'Super Admin', status: 'Active' },
-    { name: 'Elena Rostova', email: 'elena.rostova@aurumledger.pro', role: 'Operator', status: 'Active' },
-    { name: 'Marcus Vance', email: 'marcus.vance@aurumledger.pro', role: 'Viewer', status: 'Active' }
+    ...vaultUsers
   ];
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     alert('Settings configurations saved successfully.');
+  };
+
+  const handleInviteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteName.trim() || !inviteEmail.trim()) return;
+    addVaultUser({
+      name: inviteName,
+      email: inviteEmail,
+      role: inviteRole
+    });
+    setInviteName('');
+    setInviteEmail('');
+    setInviteRole('Operator');
+    setShowInviteModal(false);
   };
 
   return (
@@ -120,7 +140,7 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b pb-2">
                   <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider">Authorized Vault Users</h3>
-                  <button onClick={() => alert('Invite user modal')} className="px-2.5 py-1 bg-bg-app border border-border-custom text-[10px] font-bold uppercase hover:border-primary-gold/45 rounded">Invite Auditor</button>
+                  <button onClick={() => setShowInviteModal(true)} className="px-2.5 py-1 bg-bg-app border border-border-custom text-[10px] font-bold uppercase hover:border-primary-gold/45 rounded cursor-pointer">Invite Auditor</button>
                 </div>
 
                 <div className="border border-border-custom rounded overflow-hidden">
@@ -179,6 +199,79 @@ export default function SettingsPage() {
 
         </div>
       </div>
+
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card-bg border border-border-custom text-text-main rounded-md shadow-lg w-full max-w-sm overflow-hidden font-sans text-xs">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-border-custom flex justify-between items-center select-none">
+              <h3 className="text-xs font-bold text-text-main uppercase tracking-wider">Invite Auditor Node</h3>
+              <button 
+                onClick={() => setShowInviteModal(false)}
+                className="p-1 text-text-muted hover:text-text-main transition-colors rounded-full hover:bg-bg-app"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleInviteSubmit} className="p-4 space-y-4">
+              <div className="flex flex-col space-y-1">
+                <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Full Name</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Elena Rostova"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main focus:outline-none focus:border-primary-gold"
+                />
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Corporate Email</label>
+                <input 
+                  type="email" 
+                  required
+                  placeholder="elena.rostova@aurumledger.pro"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main focus:outline-none focus:border-primary-gold"
+                />
+              </div>
+
+              <div className="flex flex-col space-y-1">
+                <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Workspace Role</label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as any)}
+                  className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main focus:outline-none focus:border-primary-gold"
+                >
+                  <option value="Super Admin">Super Admin</option>
+                  <option value="Operator">Operator</option>
+                  <option value="Viewer">Viewer</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 select-none">
+                <button 
+                  type="button"
+                  onClick={() => setShowInviteModal(false)}
+                  className="px-3 py-1.5 border border-border-custom bg-sidebar-bg text-text-muted hover:text-text-main rounded font-bold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="px-3 py-1.5 bg-primary-gold hover:opacity-90 rounded font-bold text-white shadow-xs cursor-pointer"
+                >
+                  Send Invitation
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

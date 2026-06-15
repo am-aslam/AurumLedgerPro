@@ -191,7 +191,7 @@ export default function Dashboard() {
         </div>
 
         {/* Secondary KPI Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-card-bg border border-border-custom p-4 rounded flex items-center justify-between shadow-sm">
             <div>
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Partner Capital Managed</span>
@@ -209,14 +209,6 @@ export default function Dashboard() {
               <span className="text-base font-bold text-text-main block mt-1">{importedAccountsCount} Sheets Ingested</span>
             </div>
             <FileSpreadsheet className="w-4 h-4 text-text-muted" />
-          </div>
-
-          <div className="bg-card-bg border border-border-custom p-4 rounded flex items-center justify-between shadow-sm">
-            <div>
-              <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Treasury Spot Rate</span>
-              <span className="text-base font-bold text-text-main block mt-1">{currencySymbol}{(goldRate * currencyFactor).toFixed(2)} / gram</span>
-            </div>
-            <Activity className="w-4 h-4 text-primary-gold" />
           </div>
         </div>
 

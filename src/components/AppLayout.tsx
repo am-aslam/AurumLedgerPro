@@ -8,9 +8,13 @@ import { useExcelLedgerStore } from '@/store/useExcelLedgerStore';
 import { Menu, X } from 'lucide-react';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { sidebarCollapsed } = useExcelLedgerStore();
+  const { sidebarCollapsed, fetchData } = useExcelLedgerStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     setMobileMenuOpen(false);

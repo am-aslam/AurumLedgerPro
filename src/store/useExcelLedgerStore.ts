@@ -15,6 +15,8 @@ export interface LedgerRow {
   stoneWeight: number;
   netWeight: number; // gross - stone
   touch: number; // e.g. 99.90, 99.50, 91.60, 75.00
+  added_touch?: number; // Added Touch % (e.g. 92)
+  touch_value?: number; // Calculated Touch = (Net Weight * Added Touch) / 100
   debit: number; // gold debited (outward)
   credit: number; // gold credited (inbound)
   balance: number; // fine gold running balance
@@ -84,10 +86,14 @@ interface ExcelLedgerState {
   addLedgerRow: (accountId: string, row: Omit<LedgerRow, 'id' | 'netWeight' | 'balance' | 'createdDate' | 'updatedDate'>) => void;
   deleteLedgerRow: (accountId: string, rowId: string) => void;
   updateLedgerCell: (accountId: string, rowId: string, field: keyof LedgerRow, value: any) => void;
+  updateLedgerRow: (accountId: string, rowId: string, row: Partial<Omit<LedgerRow, 'id' | 'netWeight' | 'balance' | 'createdDate' | 'updatedDate'>>) => Promise<void>;
   importExcelData: (accountName: string, rows: Omit<LedgerRow, 'id' | 'balance' | 'createdDate' | 'updatedDate'>[]) => void;
-  addAccount: (name: string, status: 'Active' | 'Inactive', grossWeight: number, stoneWeight: number, touch: number) => void;
+  addAccount: (name: string, status: 'Active' | 'Inactive', grossWeight: number, stoneWeight: number, touch: number, added_touch?: number) => void;
+  deleteAccount: (id: string) => Promise<void>;
+  updateAccount: (id: string, name: string, status: 'Active' | 'Inactive') => Promise<void>;
   addPartnerCapitalTransaction: (partnerId: string, particular: string, amount: number, ref: string) => void;
   addPartner: (name: string, profitShare: number) => void;
+  fetchData: (force?: boolean) => Promise<void>;
 }
 
 const calculateFineWeight = (net: number, touch: number) => {
@@ -205,7 +211,7 @@ const initialAccounts: Account[] = [];
 
 const initialPartners: PartnerCapital[] = [];
 
-export const useExcelLedgerStore = create<ExcelLedgerState>((set) => ({
+export const useExcelLedgerStore = create<ExcelLedgerState>((set, get) => ({
   accounts: initialAccounts,
   partners: initialPartners,
   activeAccountId: '',
@@ -220,282 +226,241 @@ export const useExcelLedgerStore = create<ExcelLedgerState>((set) => ({
   currentUser: { name: 'Alexander Wright', email: 'alex.wright@aurumledger.pro' },
   setCurrentUser: (user) => set({ currentUser: user }),
   vaultUsers: [],
-  addVaultUser: (user) => set((state) => ({ vaultUsers: [...state.vaultUsers, { ...user, status: 'Active' }] })),
+  addVaultUser: async (user) => {
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      });
+      if (res.ok) {
+        await get().fetchData(true);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to add vault user');
+      }
+    } catch (e) {
+      console.error('Error adding vault user:', e);
+    }
+  },
 
   setActiveAccountId: (id) => set({ activeAccountId: id }),
   setSelectedRowId: (id) => set({ selectedRowId: id }),
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-  setThemeMode: (mode) => set({ themeMode: mode }),
-
-  addAccount: (name, status, grossWeight, stoneWeight, touch) => set((state) => {
-    const isAlready = state.accounts.some(acc => acc.name.toLowerCase() === name.toLowerCase());
-    if (isAlready) return {}; // Return empty to make no change
-
-    const accountId = `acc-${Math.floor(100 + Math.random() * 900)}`;
-    const ledger: LedgerRow[] = [];
-    const netWeight = grossWeight - stoneWeight;
-    const fineWeight = parseFloat(((netWeight * touch) / 100).toFixed(3));
-
-    if (fineWeight !== 0) {
-      const dateStr = new Date().toISOString().split('T')[0];
-
-      ledger.push({
-        id: `row-${Math.floor(1000 + Math.random() * 9000)}`,
-        date: dateStr,
-        particular: 'Opening Balance',
-        grossWeight,
-        stoneWeight,
-        netWeight,
-        touch,
-        debit: 0,
-        credit: fineWeight,
-        balance: fineWeight,
-        notes: 'Manual account initialization physical gold opening balance.',
-        createdDate: new Date().toISOString(),
-        updatedDate: new Date().toISOString(),
-        attachments: [],
-        auditHistory: [{ timestamp: new Date().toISOString(), user: 'Current User', action: 'Created account with physical opening balance' }]
-      });
+  setThemeMode: (mode) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('themeMode', mode);
     }
+    set({ themeMode: mode });
+  },
 
-    const newAccount: Account = {
-      id: accountId,
-      name,
-      currentBalance: fineWeight,
-      status,
-      lastUpdated: new Date().toISOString().split('T')[0],
-      ledger
-    };
-
-    return {
-      accounts: [...state.accounts, newAccount],
-      activeAccountId: accountId
-    };
-  }),
-
-  addLedgerRow: (accountId, row) => set((state) => {
-    const netWeight = row.grossWeight - row.stoneWeight;
-    const fineWeight = calculateFineWeight(netWeight, row.touch);
-
-    const isCredit = row.particular === 'Opening Balance' || row.particular === 'WT RCVD';
-    const finalCredit = isCredit ? fineWeight : 0;
-    const finalDebit = !isCredit ? fineWeight : 0;
-
-    const newRow: LedgerRow = {
-      ...row,
-      id: `row-${Math.floor(1000 + Math.random() * 9000)}`,
-      netWeight,
-      debit: finalDebit,
-      credit: finalCredit,
-      balance: 0, // recalculated below
-      createdDate: new Date().toISOString(),
-      updatedDate: new Date().toISOString(),
-      auditHistory: [{ timestamp: new Date().toISOString(), user: 'Current User', action: 'Created transaction row' }]
-    };
-
-    const updatedAccounts = state.accounts.map(acc => {
-      if (acc.id === accountId) {
-        const sortedLedger = [...acc.ledger, newRow].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        
-        // Recalculate running balance
-        let balance = 0;
-        const recalculatedLedger = sortedLedger.map(item => {
-          balance = balance - item.debit + item.credit;
-          return { ...item, balance: parseFloat(balance.toFixed(3)) };
-        });
-
-        return {
-          ...acc,
-          currentBalance: parseFloat(balance.toFixed(3)),
-          lastUpdated: newRow.date,
-          ledger: recalculatedLedger
-        };
-      }
-      return acc;
-    });
-
-    return { accounts: updatedAccounts };
-  }),
-
-  deleteLedgerRow: (accountId, rowId) => set((state) => {
-    const updatedAccounts = state.accounts.map(acc => {
-      if (acc.id === accountId) {
-        const filteredLedger = acc.ledger.filter(r => r.id !== rowId);
-        
-        let balance = 0;
-        const recalculatedLedger = filteredLedger.map(item => {
-          balance = balance - item.debit + item.credit;
-          return { ...item, balance: parseFloat(balance.toFixed(3)) };
-        });
-
-        return {
-          ...acc,
-          currentBalance: parseFloat(balance.toFixed(3)),
-          ledger: recalculatedLedger
-        };
-      }
-      return acc;
-    });
-
-    return { 
-      accounts: updatedAccounts,
-      selectedRowId: state.selectedRowId === rowId ? null : state.selectedRowId
-    };
-  }),
-
-  updateLedgerCell: (accountId, rowId, field, value) => set((state) => {
-    const updatedAccounts = state.accounts.map(acc => {
-      if (acc.id === accountId) {
-        const updatedLedger = acc.ledger.map(row => {
-          if (row.id === rowId) {
-            const updatedRow = { 
-              ...row, 
-              [field]: value, 
-              updatedDate: new Date().toISOString()
-            };
-
-            // Recalculate weights if gross, stone or touch changed
-            if (field === 'grossWeight' || field === 'stoneWeight' || field === 'touch' || field === 'particular') {
-              updatedRow.netWeight = updatedRow.grossWeight - updatedRow.stoneWeight;
-              const fineWeight = calculateFineWeight(updatedRow.netWeight, updatedRow.touch);
-              
-              const isCredit = updatedRow.particular === 'Opening Balance' || updatedRow.particular === 'WT RCVD';
-              updatedRow.credit = isCredit ? fineWeight : 0;
-              updatedRow.debit = !isCredit ? fineWeight : 0;
-            }
-
-            const audit = {
-              timestamp: new Date().toISOString(),
-              user: 'Current User',
-              action: 'Modified cell',
-              details: `Field "${String(field)}" edited to "${String(value)}"`
-            };
-            updatedRow.auditHistory = [...(row.auditHistory || []), audit];
-
-            return updatedRow;
-          }
-          return row;
-        });
-
-        // Recalculate running balance
-        let balance = 0;
-        const recalculatedLedger = updatedLedger.map(item => {
-          balance = balance - item.debit + item.credit;
-          return { ...item, balance: parseFloat(balance.toFixed(3)) };
-        });
-
-        return {
-          ...acc,
-          currentBalance: parseFloat(balance.toFixed(3)),
-          ledger: recalculatedLedger
-        };
-      }
-      return acc;
-    });
-
-    return { accounts: updatedAccounts };
-  }),
-
-  importExcelData: (accountName, rows) => set((state) => {
-    // Check if account already exists
-    let account = state.accounts.find(a => a.name.toLowerCase() === accountName.toLowerCase());
-    
-    const newRows: LedgerRow[] = rows.map((r, idx) => {
-      const netWeight = r.grossWeight - r.stoneWeight;
-      const fineWeight = calculateFineWeight(netWeight, r.touch);
-      const isCredit = r.particular === 'Opening Balance' || r.particular === 'WT RCVD';
-
-      return {
-        ...r,
-        id: `row-imp-${Math.floor(2000 + Math.random() * 8000) + idx}`,
-        netWeight,
-        debit: !isCredit ? fineWeight : 0,
-        credit: isCredit ? fineWeight : 0,
-        balance: 0,
-        createdDate: new Date().toISOString(),
-        updatedDate: new Date().toISOString(),
-        auditHistory: [{ timestamp: new Date().toISOString(), user: 'Import Engine', action: 'Imported from Excel workbook' }]
-      };
-    });
-
-    const updatedAccounts = state.accounts.map(acc => {
-      if (account && acc.id === account.id) {
-        const mergedLedger = [...acc.ledger, ...newRows].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        
-        let balance = 0;
-        const recalculatedLedger = mergedLedger.map(item => {
-          balance = balance - item.debit + item.credit;
-          return { ...item, balance: parseFloat(balance.toFixed(3)) };
-        });
-
-        return {
-          ...acc,
-          currentBalance: parseFloat(balance.toFixed(3)),
-          lastUpdated: new Date().toISOString().split('T')[0],
-          ledger: recalculatedLedger
-        };
-      }
-      return acc;
-    });
-
-    // If account did not exist, create a new one
-    if (!account) {
-      let balance = 0;
-      const recalculatedLedger = newRows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(item => {
-        balance = balance - item.debit + item.credit;
-        return { ...item, balance: parseFloat(balance.toFixed(3)) };
-      });
-
-      const newAccount: Account = {
-        id: `acc-${Math.floor(100 + Math.random() * 900)}`,
-        name: accountName,
-        currentBalance: parseFloat(balance.toFixed(3)),
-        status: 'Active',
-        lastUpdated: new Date().toISOString().split('T')[0],
-        ledger: recalculatedLedger
-      };
-
-      return { accounts: [...state.accounts, newAccount] };
+  fetchData: async (force = false) => {
+    if (!force && get().accounts.length > 0) {
+      return;
     }
+    try {
+      const [accountsRes, partnersRes, usersRes] = await Promise.all([
+        fetch('/api/accounts'),
+        fetch('/api/partners'),
+        fetch('/api/users')
+      ]);
 
-    return { accounts: updatedAccounts };
-  }),
+      if (!accountsRes.ok) throw new Error('Failed to fetch accounts');
+      if (!partnersRes.ok) throw new Error('Failed to fetch partners');
+      if (!usersRes.ok) throw new Error('Failed to fetch users');
 
-  addPartnerCapitalTransaction: (partnerId, particular, amount, ref) => set((state) => {
-    const updatedPartners = state.partners.map(p => {
-      if (p.id === partnerId) {
-        const dateStr = new Date().toISOString().split('T')[0];
-        const newHistoryItem = {
-          date: dateStr,
-          particular,
-          amount,
-          ref
-        };
-        const newBalance = parseFloat((p.capitalBalance + amount).toFixed(3));
-        return {
-          ...p,
-          capitalBalance: newBalance,
-          history: [newHistoryItem, ...p.history]
-        };
+      const [accountsData, partnersData, usersData] = await Promise.all([
+        accountsRes.json(),
+        partnersRes.json(),
+        usersRes.json()
+      ]);
+      
+      set({
+        accounts: Array.isArray(accountsData) ? accountsData : [],
+        partners: Array.isArray(partnersData) ? partnersData : [],
+        vaultUsers: Array.isArray(usersData) ? usersData : [],
+        activeAccountId: get().activeAccountId || (accountsData[0]?.id || '')
+      });
+    } catch (e) {
+      console.error('Error fetching data from database:', e);
+    }
+  },
+
+  addAccount: async (name, status, grossWeight, stoneWeight, touch, added_touch = 0) => {
+    try {
+      const res = await fetch('/api/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, status, grossWeight, stoneWeight, touch, added_touch }),
+      });
+      if (res.ok) {
+        await get().fetchData(true);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to create client account');
       }
-      return p;
-    });
-    return { partners: updatedPartners };
-  }),
+    } catch (e) {
+      console.error('Error creating account:', e);
+    }
+  },
 
-  addPartner: (name, profitShare) => set((state) => {
-    const partnerId = `p-${Math.floor(100 + Math.random() * 900)}`;
-    const newPartner: PartnerCapital = {
-      id: partnerId,
-      name,
-      capitalBalance: 0,
-      profitShare,
-      history: []
-    };
-    return {
-      partners: [...state.partners, newPartner]
-    };
-  })
+  deleteAccount: async (id) => {
+    try {
+      const res = await fetch(`/api/accounts/${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        await get().fetchData(true);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to delete client account');
+      }
+    } catch (e) {
+      console.error('Error deleting account:', e);
+    }
+  },
+
+  updateAccount: async (id, name, status) => {
+    try {
+      const res = await fetch(`/api/accounts/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, status }),
+      });
+      if (res.ok) {
+        await get().fetchData(true);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to update client account');
+      }
+    } catch (e) {
+      console.error('Error updating account:', e);
+    }
+  },
+
+  addLedgerRow: async (accountId, row) => {
+    try {
+      const res = await fetch('/api/ledgers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId, ...row }),
+      });
+      if (res.ok) {
+        await get().fetchData(true);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to add transaction row');
+      }
+    } catch (e) {
+      console.error('Error adding ledger row:', e);
+    }
+  },
+
+  deleteLedgerRow: async (accountId, rowId) => {
+    try {
+      const res = await fetch(`/api/ledgers/${rowId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        await get().fetchData(true);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to delete transaction row');
+      }
+    } catch (e) {
+      console.error('Error deleting ledger row:', e);
+    }
+  },
+
+  updateLedgerCell: async (accountId, rowId, field, value) => {
+    try {
+      const res = await fetch(`/api/ledgers/${rowId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ field, value }),
+      });
+      if (res.ok) {
+        await get().fetchData(true);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to update transaction cell');
+      }
+    } catch (e) {
+      console.error('Error updating ledger cell:', e);
+    }
+  },
+
+  updateLedgerRow: async (accountId, rowId, row) => {
+    try {
+      const res = await fetch(`/api/ledgers/${rowId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(row),
+      });
+      if (res.ok) {
+        await get().fetchData(true);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to update transaction row');
+      }
+    } catch (e) {
+      console.error('Error updating ledger row:', e);
+    }
+  },
+
+  importExcelData: async (accountName, rows) => {
+    try {
+      const res = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountName, rows }),
+      });
+      if (res.ok) {
+        await get().fetchData(true);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to import excel data');
+      }
+    } catch (e) {
+      console.error('Error importing excel data:', e);
+    }
+  },
+
+  addPartnerCapitalTransaction: async (partnerId, particular, amount, ref) => {
+    try {
+      const res = await fetch(`/api/partners/${partnerId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ particular, amount, ref }),
+      });
+      if (res.ok) {
+        await get().fetchData(true);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to add partner capital transaction');
+      }
+    } catch (e) {
+      console.error('Error adding partner transaction:', e);
+    }
+  },
+
+  addPartner: async (name, profitShare) => {
+    try {
+      const res = await fetch('/api/partners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, profitShare }),
+      });
+      if (res.ok) {
+        await get().fetchData(true);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to create partner');
+      }
+    } catch (e) {
+      console.error('Error creating partner:', e);
+    }
+  }
 }));
 
 export const formatCurrency = (valInGrams: number, goldRateInUSD: number, currencyCode: 'USD' | 'INR' | 'AED' | 'EUR') => {

@@ -369,7 +369,12 @@ export const useLedgerStore = create<LedgerState>((set) => ({
   
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   
-  setThemeMode: (mode) => set({ themeMode: mode }),
+  setThemeMode: (mode) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('themeMode', mode);
+    }
+    set({ themeMode: mode });
+  },
   
   addAuditLog: (user, action, details) => set((state) => ({
     auditLogs: [{ timestamp: new Date().toISOString(), user, action, details }, ...state.auditLogs]

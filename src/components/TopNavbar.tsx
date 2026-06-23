@@ -36,6 +36,15 @@ export default function TopNavbar({ onMenuClick }: { onMenuClick?: () => void })
 
   // Sync theme with DOM documentElement
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('themeMode') as 'light' | 'dark';
+      if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
+        setThemeMode(savedTheme);
+      }
+    }
+  }, [setThemeMode]);
+
+  useEffect(() => {
     const root = window.document.documentElement;
     if (themeMode === 'dark') {
       root.classList.add('dark');

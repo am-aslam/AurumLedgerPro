@@ -19,7 +19,8 @@ import {
   Database,
   ArrowRight,
   ChevronDown,
-  Search
+  Search,
+  Edit3
 } from 'lucide-react';
 
 export default function LedgersPage() {
@@ -33,6 +34,7 @@ export default function LedgersPage() {
     addLedgerRow, 
     deleteLedgerRow, 
     updateLedgerCell, 
+    updateLedgerRow,
     goldRate 
   } = useExcelLedgerStore();
 
@@ -49,8 +51,37 @@ export default function LedgersPage() {
   const [formParticular, setFormParticular] = useState<LedgerRow['particular']>('WT RCVD');
   const [formGross, setFormGross] = useState('');
   const [formStone, setFormStone] = useState('0');
-  const [formTouch, setFormTouch] = useState('99.90');
+  const [formAddedTouch, setFormAddedTouch] = useState('99.90');
   const [formNotes, setFormNotes] = useState('');
+
+  // Edit Voucher Modal States
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editRowId, setEditRowId] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editParticular, setEditParticular] = useState<LedgerRow['particular']>('WT RCVD');
+  const [editGross, setEditGross] = useState('');
+  const [editStone, setEditStone] = useState('0');
+  const [editAddedTouch, setEditAddedTouch] = useState('99.90');
+  const [editNotes, setEditNotes] = useState('');
+
+  // Custom Delete Confirmation Modal States
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTargetRowId, setDeleteTargetRowId] = useState('');
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editRowId || !activeAccount) return;
+    updateLedgerRow(activeAccount.id, editRowId, {
+      date: editDate,
+      particular: editParticular,
+      grossWeight: parseFloat(editGross) || 0,
+      stoneWeight: parseFloat(editStone) || 0,
+      touch: parseFloat(editAddedTouch) || 0,
+      added_touch: parseFloat(editAddedTouch) || 0,
+      notes: editNotes
+    });
+    setIsEditModalOpen(false);
+  };
 
   const handleExport = (format: 'xlsx' | 'csv' | 'pdf') => {
     if (!activeAccount) return;
@@ -62,7 +93,7 @@ export default function LedgersPage() {
       'Gross Weight (g)': row.grossWeight,
       'Stone Weight (g)': row.stoneWeight,
       'Net Weight (g)': row.netWeight,
-      'Touch Fineness': row.touch,
+      'Touch Fineness': row.added_touch ?? 0,
       'Debit (g)': row.debit,
       'Credit (g)': row.credit,
       'Running Balance (g)': row.balance
@@ -125,7 +156,7 @@ export default function LedgersPage() {
     if (!editingCell) return;
     
     let typedValue: any = editValue;
-    if (field === 'grossWeight' || field === 'stoneWeight' || field === 'touch') {
+    if (field === 'grossWeight' || field === 'stoneWeight' || field === 'touch' || field === 'added_touch') {
       typedValue = parseFloat(editValue) || 0;
     }
     
@@ -137,14 +168,15 @@ export default function LedgersPage() {
     e.preventDefault();
     const gross = parseFloat(formGross) || 0;
     const stone = parseFloat(formStone) || 0;
-    const touch = parseFloat(formTouch) || 99.90;
+    const added_touch = parseFloat(formAddedTouch) || 0;
 
     addLedgerRow(activeAccount.id, {
       date: formDate,
       particular: formParticular,
       grossWeight: gross,
       stoneWeight: stone,
-      touch,
+      touch: added_touch,
+      added_touch,
       debit: 0,
       credit: 0,
       notes: formNotes,
@@ -154,6 +186,7 @@ export default function LedgersPage() {
     // Reset Form
     setFormGross('');
     setFormStone('0');
+    setFormAddedTouch('99.90');
     setFormNotes('');
     setShowLogModal(false);
   };
@@ -245,15 +278,14 @@ export default function LedgersPage() {
               <table className="w-full text-left text-xs border-collapse relative">
                 <thead>
                   <tr className="bg-bg-app border-b border-border-custom text-[10px] font-bold text-text-muted uppercase tracking-wider sticky top-0 z-10">
-                    <th className="p-3 pl-4">Date</th>
-                    <th className="p-3">Particular</th>
-                    <th className="p-3 text-right">Gross (g)</th>
-                    <th className="p-3 text-right">Stone (g)</th>
+                    <th className="p-3 pl-4">Customer Name</th>
+                    <th className="p-3 text-center">Purity</th>
+                    <th className="p-3 text-right">Gross Weight</th>
+                    <th className="p-3 text-right">Stone Weight</th>
                     <th className="p-3 text-right">Net Weight</th>
-                    <th className="p-3 text-center">Touch %</th>
-                    <th className="p-3 text-right">Debit (g)</th>
-                    <th className="p-3 text-right">Credit (g)</th>
-                    <th className="p-3 text-right pr-4">Balance</th>
+                    <th className="p-3 text-right">Touch</th>
+                    <th className="p-3">Date</th>
+                    <th className="p-3 text-center pr-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-custom/50 font-medium">
@@ -268,51 +300,27 @@ export default function LedgersPage() {
                             isSelected ? 'bg-bg-app/80 border-l-2 border-primary-gold' : ''
                           }`}
                         >
-                          {/* Date Cell */}
-                          <td className="p-3 pl-4 font-mono text-text-main whitespace-nowrap">
-                            {editingCell?.rowId === row.id && editingCell?.field === 'date' ? (
+                          {/* Customer Name */}
+                          <td className="p-3 pl-4 text-text-main font-semibold">
+                            {activeAccount.name}
+                          </td>
+
+                          {/* Purity */}
+                          <td className="p-3 text-center">
+                            {editingCell?.rowId === row.id && editingCell?.field === 'added_touch' ? (
                               <input 
-                                type="date"
+                                type="number"
+                                step="0.01"
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={() => saveInlineEdit(row.id, 'date')}
-                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'date')}
-                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0 max-w-[100px]"
+                                onBlur={() => saveInlineEdit(row.id, 'added_touch')}
+                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'added_touch')}
+                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0 max-w-[60px] text-center"
                                 autoFocus
                               />
                             ) : (
-                              <span onDoubleClick={() => startEditing(row.id, 'date', row.date)}>
-                                {new Date(row.date).toLocaleDateString()}
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Particular Cell */}
-                          <td className="p-3 whitespace-nowrap">
-                            {editingCell?.rowId === row.id && editingCell?.field === 'particular' ? (
-                              <select 
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={() => saveInlineEdit(row.id, 'particular')}
-                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0"
-                                autoFocus
-                              >
-                                <option value="Opening Balance">Opening Balance</option>
-                                <option value="WT RCVD">WT RCVD</option>
-                                <option value="Sale">Sale</option>
-                                <option value="Adjustment">Adjustment</option>
-                              </select>
-                            ) : (
-                              <span 
-                                onDoubleClick={() => startEditing(row.id, 'particular', row.particular)}
-                                className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                                  row.particular === 'WT RCVD' ? 'bg-success-custom/15 text-success-custom' :
-                                  row.particular === 'Sale' ? 'bg-primary-gold/15 text-primary-gold' :
-                                  row.particular === 'Opening Balance' ? 'bg-text-muted/15 text-text-muted' :
-                                  'bg-danger-custom/15 text-danger-custom'
-                                }`}
-                              >
-                                {row.particular}
+                              <span onDoubleClick={() => startEditing(row.id, 'added_touch', row.added_touch ?? 0)} className="font-mono text-primary-gold font-bold">
+                                {(row.added_touch ?? 0).toFixed(2)}%
                               </span>
                             )}
                           </td>
@@ -358,45 +366,66 @@ export default function LedgersPage() {
                           </td>
 
                           {/* Net Weight */}
-                          <td className="p-3 text-right text-text-main">
+                          <td className="p-3 text-right text-text-main font-semibold">
                             {row.netWeight.toFixed(2)}
                           </td>
 
-                          {/* Touch % */}
-                          <td className="p-3 text-center">
-                            {editingCell?.rowId === row.id && editingCell?.field === 'touch' ? (
+                          {/* Touch (Calculated Value) */}
+                          <td className="p-3 text-right text-text-main font-semibold">
+                            {(row.touch_value ?? 0).toFixed(3)}
+                          </td>
+
+                          {/* Date */}
+                          <td className="p-3 font-mono text-text-muted whitespace-nowrap">
+                            {editingCell?.rowId === row.id && editingCell?.field === 'date' ? (
                               <input 
-                                type="number"
-                                step="0.01"
+                                type="date"
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={() => saveInlineEdit(row.id, 'touch')}
-                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'touch')}
-                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0 max-w-[60px] text-center"
+                                onBlur={() => saveInlineEdit(row.id, 'date')}
+                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'date')}
+                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0 max-w-[100px]"
                                 autoFocus
                               />
                             ) : (
-                              <span onDoubleClick={() => startEditing(row.id, 'touch', row.touch)} className="font-mono text-text-main font-semibold">
-                                {row.touch.toFixed(2)}%
+                              <span onDoubleClick={() => startEditing(row.id, 'date', row.date)}>
+                                {new Date(row.date).toLocaleDateString()}
                               </span>
                             )}
                           </td>
 
-                          {/* Debit */}
-                          <td className="p-3 text-right text-danger-custom font-bold">
-                            {row.debit > 0 ? `-${row.debit.toFixed(2)}` : '-'}
-                          </td>
-
-                          {/* Credit */}
-                          <td className="p-3 text-right text-success-custom font-bold">
-                            {row.credit > 0 ? `+${row.credit.toFixed(2)}` : '-'}
-                          </td>
-
-                          {/* Balance */}
-                          <td className={`p-3 text-right pr-4 font-bold ${
-                            row.balance >= 0 ? 'text-text-main' : 'text-danger-custom'
-                          }`}>
-                            {row.balance.toFixed(2)} g
+                          {/* Actions */}
+                          <td className="p-3 text-center pr-4">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditRowId(row.id);
+                                  setEditDate(row.date);
+                                  setEditParticular(row.particular);
+                                  setEditGross(String(row.grossWeight));
+                                  setEditStone(String(row.stoneWeight));
+                                  setEditAddedTouch(String(row.added_touch ?? 0));
+                                  setEditNotes(row.notes ?? '');
+                                  setIsEditModalOpen(true);
+                                }}
+                                className="p-1 rounded hover:bg-bg-app text-text-muted hover:text-text-main transition-colors"
+                                title="Edit Voucher Row"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteTargetRowId(row.id);
+                                  setDeleteConfirmOpen(true);
+                                }}
+                                className="p-1 rounded hover:bg-danger-custom/10 text-danger-custom transition-colors"
+                                title="Delete Voucher Row"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -455,9 +484,8 @@ export default function LedgersPage() {
 
                     <button 
                       onClick={() => {
-                        if (confirm('Delete this ledger row record?')) {
-                          deleteLedgerRow(activeAccount.id, activeRow.id);
-                        }
+                        setDeleteTargetRowId(activeRow.id);
+                        setDeleteConfirmOpen(true);
                       }}
                       className="ml-auto p-1.5 text-text-muted hover:text-danger-custom transition-colors"
                       title="Delete Voucher Row"
@@ -640,12 +668,12 @@ export default function LedgersPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-3">
                   <div className="flex flex-col space-y-1">
                     <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Gross (g)</label>
                     <input 
                       type="number"
-                      step="0.01"
+                      step="any"
                       placeholder="100.00"
                       value={formGross}
                       onChange={(e) => setFormGross(e.target.value)}
@@ -658,7 +686,7 @@ export default function LedgersPage() {
                     <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Stone (g)</label>
                     <input 
                       type="number"
-                      step="0.01"
+                      step="any"
                       placeholder="0.00"
                       value={formStone}
                       onChange={(e) => setFormStone(e.target.value)}
@@ -668,18 +696,38 @@ export default function LedgersPage() {
                   </div>
 
                   <div className="flex flex-col space-y-1">
-                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Touch %</label>
+                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Purity %</label>
                     <input 
                       type="number"
-                      step="0.01"
+                      step="any"
                       placeholder="99.90"
-                      value={formTouch}
-                      onChange={(e) => setFormTouch(e.target.value)}
+                      value={formAddedTouch}
+                      onChange={(e) => setFormAddedTouch(e.target.value)}
                       className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main font-semibold focus:outline-none focus:border-primary-gold"
                       required
                     />
                   </div>
                 </div>
+
+                {(() => {
+                  const grossNum = parseFloat(formGross) || 0;
+                  const stoneNum = parseFloat(formStone) || 0;
+                  const netNum = grossNum - stoneNum;
+                  const addedTouchNum = parseFloat(formAddedTouch) || 0;
+                  const touchValEst = parseFloat(((netNum * addedTouchNum) / 100).toFixed(3));
+                  return (
+                    <div className="bg-bg-app border border-border-custom p-3 rounded flex justify-between items-center select-none font-sans">
+                      <div>
+                        <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Net Weight</span>
+                        <span className="text-xs font-bold text-text-main block mt-0.5">{netNum.toFixed(2)} g</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Calculated Touch</span>
+                        <span className="text-xs font-bold text-text-main block mt-0.5">{touchValEst.toFixed(3)} g</span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="flex flex-col space-y-1">
                   <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Voucher Notes</label>
@@ -708,6 +756,178 @@ export default function LedgersPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT VOUCHER TRANSACTION MODAL DIALOG */}
+        {isEditModalOpen && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-sidebar-bg border border-border-custom rounded-md shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
+              <div className="p-4 border-b border-border-custom bg-bg-app/40 flex justify-between items-center select-none">
+                <span className="font-bold text-xs text-text-main">Edit Voucher Transaction</span>
+                <button onClick={() => setIsEditModalOpen(false)} className="p-1 hover:bg-bg-app rounded text-text-muted hover:text-text-main">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditSubmit} className="p-5 space-y-4 text-xs font-semibold">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col space-y-1">
+                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Posting Date</label>
+                    <input 
+                      type="date"
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main font-semibold focus:outline-none focus:border-primary-gold"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Particular</label>
+                    <select 
+                      value={editParticular}
+                      onChange={(e) => setEditParticular(e.target.value as LedgerRow['particular'])}
+                      className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main font-semibold focus:outline-none focus:border-primary-gold"
+                      required
+                    >
+                      <option value="Opening Balance">Opening Balance</option>
+                      <option value="WT RCVD">WT RCVD (Credit Inbound)</option>
+                      <option value="Sale">Sale (Debit Outbound)</option>
+                      <option value="Adjustment">Adjustment (Audit balance)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="flex flex-col space-y-1">
+                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Gross (g)</label>
+                    <input 
+                      type="number"
+                      step="any"
+                      placeholder="0.00"
+                      value={editGross}
+                      onChange={(e) => setEditGross(e.target.value)}
+                      className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main font-semibold focus:outline-none focus:border-primary-gold placeholder-text-muted/60"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Stone (g)</label>
+                    <input 
+                      type="number"
+                      step="any"
+                      placeholder="0.00"
+                      value={editStone}
+                      onChange={(e) => setEditStone(e.target.value)}
+                      className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main font-semibold focus:outline-none focus:border-primary-gold"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex flex-col space-y-1">
+                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Purity %</label>
+                    <input 
+                      type="number"
+                      step="any"
+                      placeholder="99.90"
+                      value={editAddedTouch}
+                      onChange={(e) => setEditAddedTouch(e.target.value)}
+                      className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main font-semibold focus:outline-none focus:border-primary-gold"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {(() => {
+                  const grossNum = parseFloat(editGross) || 0;
+                  const stoneNum = parseFloat(editStone) || 0;
+                  const netNum = grossNum - stoneNum;
+                  const addedTouchNum = parseFloat(editAddedTouch) || 0;
+                  const touchValEst = parseFloat(((netNum * addedTouchNum) / 100).toFixed(3));
+                  return (
+                    <div className="bg-bg-app border border-border-custom p-3 rounded flex justify-between items-center select-none font-sans">
+                      <div>
+                        <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Net Weight</span>
+                        <span className="text-xs font-bold text-text-main block mt-0.5">{netNum.toFixed(2)} g</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Calculated Touch</span>
+                        <span className="text-xs font-bold text-text-main block mt-0.5">{touchValEst.toFixed(3)} g</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="flex flex-col space-y-1">
+                  <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Voucher Notes</label>
+                  <textarea 
+                    rows={3}
+                    placeholder="Enter description comments..."
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main font-semibold focus:outline-none focus:border-primary-gold placeholder-text-muted/60 resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-border-custom">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="px-4 py-2 border border-border-custom rounded font-bold text-text-muted hover:text-text-main bg-bg-app"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-4 py-2 bg-primary-gold hover:opacity-90 rounded font-bold text-white shadow-xs"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* CUSTOM DELETE CONFIRMATION MODAL CARD */}
+        {deleteConfirmOpen && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-sidebar-bg border border-border-custom rounded-md shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
+              <div className="p-4 border-b border-border-custom bg-bg-app/40 flex justify-between items-center select-none">
+                <span className="font-bold text-xs text-text-main">Confirm Deletion</span>
+                <button onClick={() => setDeleteConfirmOpen(false)} className="p-1 hover:bg-bg-app rounded text-text-muted hover:text-text-main">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-5 space-y-4 text-xs font-semibold">
+                <p className="text-text-muted leading-relaxed">
+                  Are you sure you want to delete this transaction ledger row record? This action will permanently remove the record from the database.
+                </p>
+                <div className="flex justify-end gap-2 pt-2 border-t border-border-custom">
+                  <button 
+                    type="button" 
+                    onClick={() => setDeleteConfirmOpen(false)}
+                    className="px-4 py-2 border border-border-custom rounded font-bold text-text-muted hover:text-text-main bg-bg-app"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (activeAccount) {
+                        deleteLedgerRow(activeAccount.id, deleteTargetRowId);
+                      }
+                      setDeleteConfirmOpen(false);
+                    }}
+                    className="px-4 py-2 bg-danger-custom hover:opacity-90 rounded font-bold text-white shadow-xs"
+                  >
+                    Delete Record
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

@@ -1,0 +1,63 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Account {
+  id             String      @id @default(uuid())
+  name           String      @unique
+  currentBalance Float       @default(0.0)
+  status         String      @default("Active")
+  lastUpdated    String
+  ledger         LedgerRow[]
+}
+
+model LedgerRow {
+  id           String   @id @default(uuid())
+  date         String
+  particular   String
+  grossWeight  Float
+  stoneWeight  Float
+  netWeight    Float
+  touch        Float    // Purity fineness % (e.g. 99.90)
+  added_touch  Float    @default(0.0) // Added touch % (e.g. 92.00)
+  touch_value  Float    @default(0.0) // Calculated touch: (netWeight * added_touch) / 100
+  debit        Float    @default(0.0)
+  credit       Float    @default(0.0)
+  balance      Float    @default(0.0)
+  notes        String?
+  attachments  String   @default("[]") // stored as JSON string array
+  createdDate  String
+  updatedDate  String
+  accountId    String
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model Partner {
+  id             String                  @id @default(uuid())
+  name           String
+  capitalBalance Float                   @default(0.0)
+  profitShare    Float
+  history        PartnerCapitalHistory[]
+}
+
+model PartnerCapitalHistory {
+  id         String   @id @default(uuid())
+  date       String
+  particular String
+  amount     Float
+  ref        String
+  partnerId  String
+  partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+}
+
+model VaultUser {
+  email  String @id
+  name   String
+  role   String
+  status String @default("Active")
+}

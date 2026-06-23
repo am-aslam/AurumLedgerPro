@@ -18,7 +18,9 @@ import {
   Filter,
   Plus,
   X,
-  CheckCircle
+  CheckCircle,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 
 export default function BalancesPage() {
@@ -27,6 +29,8 @@ export default function BalancesPage() {
     accounts, 
     setActiveAccountId, 
     addAccount, 
+    deleteAccount,
+    updateAccount,
     goldRate,
     selectedCurrency,
     globalSearchQuery,
@@ -44,15 +48,26 @@ export default function BalancesPage() {
   const [newClientStatus, setNewClientStatus] = useState<'Active' | 'Inactive'>('Active');
   const [grossWeight, setGrossWeight] = useState('');
   const [stoneWeight, setStoneWeight] = useState('0');
-  const [touchFineness, setTouchFineness] = useState('99.90');
+  const [addedTouch, setAddedTouch] = useState('99.90');
   const [toastMessage, setToastMessage] = useState('');
+
+  // Edit Modal States
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editAccountId, setEditAccountId] = useState('');
+  const [editClientName, setEditClientName] = useState('');
+  const [editClientStatus, setEditClientStatus] = useState<'Active' | 'Inactive'>('Active');
+
+  // Custom Delete Confirmation Modal States
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState('');
+  const [deleteTargetName, setDeleteTargetName] = useState('');
 
   // Auto-calculated weight previews
   const grossNum = parseFloat(grossWeight) || 0;
   const stoneNum = parseFloat(stoneWeight) || 0;
   const netNum = grossNum - stoneNum;
-  const touchNum = parseFloat(touchFineness) || 0;
-  const fineEst = parseFloat(((netNum * touchNum) / 100).toFixed(3));
+  const addedTouchNum = parseFloat(addedTouch) || 0;
+  const fineEst = parseFloat(((netNum * addedTouchNum) / 100).toFixed(3));
 
   // Handle row click
   const handleAccountClick = (id: string) => {
@@ -107,17 +122,36 @@ export default function BalancesPage() {
       return;
     }
 
-    addAccount(newClientName.trim(), newClientStatus, grossNum, stoneNum, touchNum);
+    addAccount(newClientName.trim(), newClientStatus, grossNum, stoneNum, addedTouchNum, addedTouchNum);
 
     // Reset Form & show toast
     setNewClientName('');
     setNewClientStatus('Active');
     setGrossWeight('');
     setStoneWeight('0');
-    setTouchFineness('99.90');
+    setAddedTouch('99.90');
     setIsModalOpen(false);
     
     setToastMessage('Client account registered successfully!');
+    setTimeout(() => setToastMessage(''), 3000);
+  };
+
+  // Handle Edit Client Submit
+  const handleEditClientSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editClientName.trim()) return;
+
+    // Check for duplicates (excluding currently edited account)
+    const duplicate = accounts.some(acc => acc.id !== editAccountId && acc.name.toLowerCase() === editClientName.trim().toLowerCase());
+    if (duplicate) {
+      alert('A client account with this name already exists.');
+      return;
+    }
+
+    updateAccount(editAccountId, editClientName.trim(), editClientStatus);
+
+    setIsEditModalOpen(false);
+    setToastMessage('Client account updated successfully!');
     setTimeout(() => setToastMessage(''), 3000);
   };
 
@@ -263,7 +297,7 @@ export default function BalancesPage() {
                   <th className="p-3.5 text-right">Cash Valuation ({selectedCurrency})</th>
                   <th className="p-3.5 text-center">Status</th>
                   <th className="p-3.5">Last Updated</th>
-                  <th className="p-3.5 text-center pr-5">Reconcile</th>
+                  <th className="p-3.5 text-center pr-5">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-custom/50 font-medium">
@@ -297,16 +331,43 @@ export default function BalancesPage() {
                           {acc.lastUpdated ? new Date(acc.lastUpdated).toLocaleDateString() : 'N/A'}
                         </td>
                         <td className="p-3.5 text-center pr-5">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAccountClick(acc.id);
-                            }}
-                            className="p-1 rounded hover:bg-bg-app text-primary-gold"
-                            title="Open Ledger Sheet"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAccountClick(acc.id);
+                              }}
+                              className="p-1 rounded hover:bg-bg-app text-primary-gold"
+                              title="Open Ledger Sheet"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditAccountId(acc.id);
+                                setEditClientName(acc.name);
+                                setEditClientStatus(acc.status);
+                                setIsEditModalOpen(true);
+                              }}
+                              className="p-1 rounded hover:bg-bg-app text-text-muted hover:text-text-main"
+                              title="Edit Account"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteTargetId(acc.id);
+                                setDeleteTargetName(acc.name);
+                                setDeleteConfirmOpen(true);
+                              }}
+                              className="p-1 rounded hover:bg-danger-custom/10 text-danger-custom"
+                              title="Delete Account"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -364,13 +425,13 @@ export default function BalancesPage() {
                   </div>
 
                   <div className="flex flex-col space-y-1">
-                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Assay Touch %</label>
+                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Purity %</label>
                     <input 
                       type="number"
                       step="0.01"
                       placeholder="e.g. 99.90"
-                      value={touchFineness}
-                      onChange={(e) => setTouchFineness(e.target.value)}
+                      value={addedTouch}
+                      onChange={(e) => setAddedTouch(e.target.value)}
                       className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main font-semibold focus:outline-none focus:border-primary-gold placeholder-text-muted/60"
                       required
                     />
@@ -415,8 +476,12 @@ export default function BalancesPage() {
 
                 <div className="bg-bg-app border border-border-custom p-3 rounded flex justify-between items-center select-none font-sans">
                   <div>
-                    <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Calculated Fine Opening Balance</span>
-                    <span className="text-xs font-bold text-text-main block mt-0.5">{fineEst.toFixed(2)} g</span>
+                    <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Net Weight</span>
+                    <span className="text-xs font-bold text-text-main block mt-0.5">{netNum.toFixed(2)} g</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Calculated Touch</span>
+                    <span className="text-xs font-bold text-text-main block mt-0.5">{fineEst.toFixed(3)} g</span>
                   </div>
                   <div className="text-right">
                     <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Estimated USD Value</span>
@@ -440,6 +505,104 @@ export default function BalancesPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT CLIENT DIALOG MODAL */}
+        {isEditModalOpen && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-sidebar-bg border border-border-custom rounded-md shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
+              <div className="p-4 border-b border-border-custom bg-bg-app/40 flex justify-between items-center select-none">
+                <span className="font-bold text-xs text-text-main">Edit Client Account</span>
+                <button 
+                  onClick={() => setIsEditModalOpen(false)} 
+                  className="p-1 hover:bg-bg-app rounded text-text-muted hover:text-text-main"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditClientSubmit} className="p-5 space-y-4 text-xs font-semibold">
+                <div className="flex flex-col space-y-1">
+                  <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Client Name / Business Entity</label>
+                  <input 
+                    type="text" 
+                    value={editClientName}
+                    onChange={(e) => setEditClientName(e.target.value)}
+                    className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main font-semibold focus:outline-none focus:border-primary-gold"
+                    required
+                  />
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Account Status</label>
+                  <select
+                    value={editClientStatus}
+                    onChange={(e) => setEditClientStatus(e.target.value as 'Active' | 'Inactive')}
+                    className="bg-bg-app border border-border-custom rounded px-2.5 py-1.5 text-xs text-text-main font-semibold focus:outline-none focus:border-primary-gold"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-border-custom">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="px-4 py-2 border border-border-custom rounded font-bold text-text-muted hover:text-text-main bg-bg-app"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-4 py-2 bg-primary-gold hover:opacity-90 rounded font-bold text-white shadow-xs"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* CUSTOM DELETE CONFIRMATION MODAL CARD */}
+        {deleteConfirmOpen && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-sidebar-bg border border-border-custom rounded-md shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
+              <div className="p-4 border-b border-border-custom bg-bg-app/40 flex justify-between items-center select-none">
+                <span className="font-bold text-xs text-text-main">Confirm Deletion</span>
+                <button onClick={() => setDeleteConfirmOpen(false)} className="p-1 hover:bg-bg-app rounded text-text-muted hover:text-text-main">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-5 space-y-4 text-xs font-semibold">
+                <p className="text-text-muted leading-relaxed">
+                  Are you sure you want to delete client account <span className="text-text-main font-bold">"{deleteTargetName}"</span>? This will permanently delete all associated transaction ledger rows.
+                </p>
+                <div className="flex justify-end gap-2 pt-2 border-t border-border-custom">
+                  <button 
+                    type="button" 
+                    onClick={() => setDeleteConfirmOpen(false)}
+                    className="px-4 py-2 border border-border-custom rounded font-bold text-text-muted hover:text-text-main bg-bg-app"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      deleteAccount(deleteTargetId);
+                      setToastMessage('Client account deleted successfully!');
+                      setTimeout(() => setToastMessage(''), 3000);
+                      setDeleteConfirmOpen(false);
+                    }}
+                    className="px-4 py-2 bg-danger-custom hover:opacity-90 rounded font-bold text-white shadow-xs"
+                  >
+                    Delete Account
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

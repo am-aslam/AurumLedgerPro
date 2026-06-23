@@ -1,8 +1,27 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import crypto from 'crypto';
+import fs from 'fs';
 
-const dbPath = path.resolve(process.cwd(), 'prisma/dev.db');
+let dbPath = path.resolve(process.cwd(), 'prisma/dev.db');
+
+if (process.env.VERCEL) {
+  const tempDbPath = '/tmp/dev.db';
+  try {
+    if (!fs.existsSync(tempDbPath)) {
+      const srcDbPath = path.resolve(process.cwd(), 'prisma/dev.db');
+      if (fs.existsSync(srcDbPath)) {
+        fs.copyFileSync(srcDbPath, tempDbPath);
+      } else {
+        fs.writeFileSync(tempDbPath, '');
+      }
+    }
+    dbPath = tempDbPath;
+    console.log('Vercel environment detected. Using writable database at:', dbPath);
+  } catch (err) {
+    console.error('Failed to set up writable database in /tmp, using default path:', err);
+  }
+}
 
 const db = new Database(dbPath);
 db.pragma('foreign_keys = ON');

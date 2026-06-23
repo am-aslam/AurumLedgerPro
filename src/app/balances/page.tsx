@@ -122,18 +122,20 @@ export default function BalancesPage() {
       return;
     }
 
-    addAccount(newClientName.trim(), newClientStatus, grossNum, stoneNum, addedTouchNum, addedTouchNum);
-
-    // Reset Form & show toast
-    setNewClientName('');
-    setNewClientStatus('Active');
-    setGrossWeight('');
-    setStoneWeight('0');
-    setAddedTouch('99.90');
-    setIsModalOpen(false);
-    
-    setToastMessage('Client account registered successfully!');
-    setTimeout(() => setToastMessage(''), 3000);
+    addAccount(newClientName.trim(), newClientStatus, grossNum, stoneNum, addedTouchNum, addedTouchNum).then((success) => {
+      if (success) {
+        // Reset Form & show toast
+        setNewClientName('');
+        setNewClientStatus('Active');
+        setGrossWeight('');
+        setStoneWeight('0');
+        setAddedTouch('99.90');
+        setIsModalOpen(false);
+        
+        setToastMessage('Client account registered successfully!');
+        setTimeout(() => setToastMessage(''), 3000);
+      }
+    });
   };
 
   // Handle Edit Client Submit

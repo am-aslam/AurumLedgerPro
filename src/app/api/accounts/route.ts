@@ -69,7 +69,7 @@ export async function POST(req: Request) {
         db.prepare(`
           INSERT INTO LedgerRow (id, accountId, date, particular, grossWeight, stoneWeight, netWeight, touch, added_touch, touch_value, debit, credit, balance, notes, attachments, createdDate, updatedDate)
           VALUES (?, ?, ?, 'Opening Balance', ?, ?, ?, ?, ?, ?, 0, ?, ?, 'Manual account initialization physical gold opening balance.', '[]', ?, ?)
-        `).run(rowId, accountId, grossWeight, stoneWeight, netWeight, touch, addedTouchNum, touchValue, fineWeight, fineWeight, createdDate, createdDate);
+        `).run(rowId, accountId, dateStr, grossWeight, stoneWeight, netWeight, touch, addedTouchNum, touchValue, fineWeight, fineWeight, createdDate, createdDate);
       }
     });
 

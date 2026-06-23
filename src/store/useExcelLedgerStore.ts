@@ -88,7 +88,7 @@ interface ExcelLedgerState {
   updateLedgerCell: (accountId: string, rowId: string, field: keyof LedgerRow, value: any) => void;
   updateLedgerRow: (accountId: string, rowId: string, row: Partial<Omit<LedgerRow, 'id' | 'netWeight' | 'balance' | 'createdDate' | 'updatedDate'>>) => Promise<void>;
   importExcelData: (accountName: string, rows: Omit<LedgerRow, 'id' | 'balance' | 'createdDate' | 'updatedDate'>[]) => void;
-  addAccount: (name: string, status: 'Active' | 'Inactive', grossWeight: number, stoneWeight: number, touch: number, added_touch?: number) => void;
+  addAccount: (name: string, status: 'Active' | 'Inactive', grossWeight: number, stoneWeight: number, touch: number, added_touch?: number) => Promise<boolean>;
   deleteAccount: (id: string) => Promise<void>;
   updateAccount: (id: string, name: string, status: 'Active' | 'Inactive') => Promise<void>;
   addPartnerCapitalTransaction: (partnerId: string, particular: string, amount: number, ref: string) => void;
@@ -295,12 +295,15 @@ export const useExcelLedgerStore = create<ExcelLedgerState>((set, get) => ({
       });
       if (res.ok) {
         await get().fetchData(true);
+        return true;
       } else {
         const err = await res.json();
         alert(err.error || 'Failed to create client account');
+        return false;
       }
     } catch (e) {
       console.error('Error creating account:', e);
+      return false;
     }
   },
 

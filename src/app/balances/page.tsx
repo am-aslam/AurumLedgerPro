@@ -88,14 +88,25 @@ export default function BalancesPage() {
   // Filter & Sort
   const processedAccounts = useMemo(() => {
     return accounts
+      .map(acc => {
+        const grossBalance = acc.ledger ? acc.ledger.reduce((sum, row) => {
+          const isCredit = row.particular === 'Opening Balance' || row.particular === 'WT RCVD';
+          return sum + (isCredit ? row.grossWeight : -row.grossWeight);
+        }, 0) : 0;
+        return {
+          ...acc,
+          grossBalance: parseFloat(grossBalance.toFixed(3))
+        };
+      })
       .filter(acc => {
         const matchesSearch = acc.name.toLowerCase().includes(globalSearchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'All' || acc.status === statusFilter;
         return matchesSearch && matchesStatus;
       })
       .sort((a, b) => {
-        const valA = a[sortBy];
-        const valB = b[sortBy];
+        const key = sortBy === 'currentBalance' ? 'grossBalance' : sortBy;
+        const valA = (a as any)[key];
+        const valB = (b as any)[key];
 
         if (typeof valA === 'number' && typeof valB === 'number') {
           return sortOrder === 'asc' ? valA - valB : valB - valA;
@@ -164,7 +175,7 @@ export default function BalancesPage() {
     // Format flat data for Excel/CSV spreadsheet mapping
     const exportData = processedAccounts.map(acc => ({
       'Account Name': acc.name,
-      'Current Balance (g)': acc.currentBalance,
+      'Current Gross Balance (g)': acc.grossBalance,
       [`Valuation (${selectedCurrency})`]: formatCurrency(acc.currentBalance, goldRate, selectedCurrency),
       'Status': acc.status,
       'Last Updated': acc.lastUpdated || 'N/A'
@@ -177,8 +188,8 @@ export default function BalancesPage() {
     } else if (format === 'pdf') {
       exportToPDF(
         'Client Liability Balances Grid',
-        ['Account Name', 'Current Balance (g)', `Valuation (${selectedCurrency})`, 'Status', 'Last Updated'],
-        ['Account Name', 'Current Balance (g)', `Valuation (${selectedCurrency})`, 'Status', 'Last Updated'],
+        ['Account Name', 'Current Gross Balance (g)', `Valuation (${selectedCurrency})`, 'Status', 'Last Updated'],
+        ['Account Name', 'Current Gross Balance (g)', `Valuation (${selectedCurrency})`, 'Status', 'Last Updated'],
         exportData,
         ['left', 'right', 'right', 'center', 'left']
       );
@@ -292,7 +303,7 @@ export default function BalancesPage() {
                   </th>
                   <th className="p-3.5 text-right cursor-pointer hover:bg-border-custom/30" onClick={() => handleSort('currentBalance')}>
                     <div className="flex items-center justify-end gap-1">
-                      <span>Current Fine Balance</span>
+                      <span>Current Gross Balance</span>
                       <ArrowUpDown className="w-3 h-3 text-text-muted" />
                     </div>
                   </th>
@@ -315,9 +326,9 @@ export default function BalancesPage() {
                           {acc.name}
                         </td>
                         <td className={`p-3.5 text-right font-bold ${
-                          acc.currentBalance >= 0 ? 'text-text-main' : 'text-danger-custom'
+                          acc.grossBalance >= 0 ? 'text-text-main' : 'text-danger-custom'
                         }`}>
-                          {acc.currentBalance.toFixed(2)} g
+                          {acc.grossBalance.toFixed(2)} g
                         </td>
                         <td className="p-3.5 text-right text-text-muted">
                           {formatCurrency(acc.currentBalance, goldRate, selectedCurrency)}

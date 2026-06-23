@@ -11,14 +11,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { sidebarCollapsed, fetchData } = useExcelLedgerStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     fetchData();
   }, [fetchData]);
 
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-bg-app flex items-center justify-center">
+        <div className="text-text-muted text-xs font-semibold animate-pulse">Loading AurumLedger Pro...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-bg-app text-fg-app font-sans antialiased overflow-hidden">

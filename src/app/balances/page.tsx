@@ -122,7 +122,7 @@ export default function BalancesPage() {
   }, [accounts, globalSearchQuery, statusFilter, sortBy, sortOrder]);
 
   // Handle manual client addition
-  const handleAddClientSubmit = (e: React.FormEvent) => {
+  const handleAddClientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientName.trim()) return;
 
@@ -133,7 +133,8 @@ export default function BalancesPage() {
       return;
     }
 
-    addAccount(newClientName.trim(), newClientStatus, grossNum, stoneNum, addedTouchNum, addedTouchNum).then((success) => {
+    try {
+      const success = await addAccount(newClientName.trim(), newClientStatus, grossNum, stoneNum, addedTouchNum, addedTouchNum);
       if (success) {
         // Reset Form & show toast
         setNewClientName('');
@@ -146,11 +147,13 @@ export default function BalancesPage() {
         setToastMessage('Client account registered successfully!');
         setTimeout(() => setToastMessage(''), 3000);
       }
-    });
+    } catch (error) {
+      console.error('Failed to add client:', error);
+    }
   };
 
   // Handle Edit Client Submit
-  const handleEditClientSubmit = (e: React.FormEvent) => {
+  const handleEditClientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editClientName.trim()) return;
 
@@ -161,11 +164,16 @@ export default function BalancesPage() {
       return;
     }
 
-    updateAccount(editAccountId, editClientName.trim(), editClientStatus);
-
-    setIsEditModalOpen(false);
-    setToastMessage('Client account updated successfully!');
-    setTimeout(() => setToastMessage(''), 3000);
+    try {
+      const success = await updateAccount(editAccountId, editClientName.trim(), editClientStatus);
+      if (success) {
+        setIsEditModalOpen(false);
+        setToastMessage('Client account updated successfully!');
+        setTimeout(() => setToastMessage(''), 3000);
+      }
+    } catch (error) {
+      console.error('Failed to update client:', error);
+    }
   };
 
   // Handle Exports
@@ -604,11 +612,17 @@ export default function BalancesPage() {
                   </button>
                   <button 
                     type="button"
-                    onClick={() => {
-                      deleteAccount(deleteTargetId);
-                      setToastMessage('Client account deleted successfully!');
-                      setTimeout(() => setToastMessage(''), 3000);
-                      setDeleteConfirmOpen(false);
+                    onClick={async () => {
+                      try {
+                        const success = await deleteAccount(deleteTargetId);
+                        if (success) {
+                          setToastMessage('Client account deleted successfully!');
+                          setTimeout(() => setToastMessage(''), 3000);
+                          setDeleteConfirmOpen(false);
+                        }
+                      } catch (error) {
+                        console.error('Failed to delete client:', error);
+                      }
                     }}
                     className="px-4 py-2 bg-danger-custom hover:opacity-90 rounded font-bold text-white shadow-xs"
                   >

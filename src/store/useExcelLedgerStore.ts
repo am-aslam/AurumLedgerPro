@@ -89,8 +89,8 @@ interface ExcelLedgerState {
   updateLedgerRow: (accountId: string, rowId: string, row: Partial<Omit<LedgerRow, 'id' | 'netWeight' | 'balance' | 'createdDate' | 'updatedDate'>>) => Promise<void>;
   importExcelData: (accountName: string, rows: Omit<LedgerRow, 'id' | 'balance' | 'createdDate' | 'updatedDate'>[]) => void;
   addAccount: (name: string, status: 'Active' | 'Inactive', grossWeight: number, stoneWeight: number, touch: number, added_touch?: number) => Promise<boolean>;
-  deleteAccount: (id: string) => Promise<void>;
-  updateAccount: (id: string, name: string, status: 'Active' | 'Inactive') => Promise<void>;
+  deleteAccount: (id: string) => Promise<boolean>;
+  updateAccount: (id: string, name: string, status: 'Active' | 'Inactive') => Promise<boolean>;
   addPartnerCapitalTransaction: (partnerId: string, particular: string, amount: number, ref: string) => void;
   addPartner: (name: string, profitShare: number) => void;
   fetchData: (force?: boolean) => Promise<void>;
@@ -314,12 +314,15 @@ export const useExcelLedgerStore = create<ExcelLedgerState>((set, get) => ({
       });
       if (res.ok) {
         await get().fetchData(true);
+        return true;
       } else {
         const err = await res.json();
         alert(err.error || 'Failed to delete client account');
+        return false;
       }
     } catch (e) {
       console.error('Error deleting account:', e);
+      return false;
     }
   },
 
@@ -332,12 +335,15 @@ export const useExcelLedgerStore = create<ExcelLedgerState>((set, get) => ({
       });
       if (res.ok) {
         await get().fetchData(true);
+        return true;
       } else {
         const err = await res.json();
         alert(err.error || 'Failed to update client account');
+        return false;
       }
     } catch (e) {
       console.error('Error updating account:', e);
+      return false;
     }
   },
 

@@ -17,8 +17,7 @@ import {
   ArrowRight,
   Plus,
   RefreshCw,
-  X,
-  ChevronDown
+  X
 } from 'lucide-react';
 
 interface GridRow {
@@ -99,8 +98,8 @@ export default function TransactionsPage() {
         grossWeight: row.grossWeight,
         stoneWeight: row.stoneWeight,
         netWeight: row.netWeight,
-        touch: row.added_touch ?? row.touch ?? 0,
-        purity: row.touch_value ?? 0,
+        touch: row.touch ?? 0,
+        purity: row.fineGold ?? row.touch_value ?? 0,
         notes: row.notes || ''
       }))
     ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // descending (newest on top)
@@ -130,9 +129,9 @@ export default function TransactionsPage() {
     });
 
     return {
-      gross: totalGross.toFixed(2),
-      stone: totalStone.toFixed(2),
-      net: totalNet.toFixed(2),
+      gross: totalGross.toFixed(3),
+      stone: totalStone.toFixed(3),
+      net: totalNet.toFixed(3),
       fine: totalFine.toFixed(3)
     };
   }, [gridRows]);
@@ -166,17 +165,17 @@ export default function TransactionsPage() {
     setFormData({
       id: '',
       date: new Date().toISOString().split('T')[0],
-      accountId: '',
+      accountId: accounts[0]?.id || '',
       particular: 'WT RCVD',
       grossWeight: '',
       stoneWeight: '0',
       touch: '99.90',
       notes: ''
     });
-    setClientSearch('');
+    setClientSearch(accounts[0] ? accounts[0].name : '');
     setShowClientDropdown(false);
     focusField('client-input');
-  }, []);
+  }, [accounts]);
 
   // Keyboard sequential focus shifting
   const handleFieldKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>, fieldName: string) => {
@@ -430,50 +429,50 @@ export default function TransactionsPage() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 select-none font-sans">
+      <div className="bg-[#F8F9FA] text-[#111827] border border-[#D9D9D9] rounded p-5 space-y-6 shadow-xs min-h-[calc(100vh-100px)] font-sans">
         
         {/* Title Header */}
-        <div className="flex justify-between items-center select-none border-b border-border-custom pb-4">
+        <div className="flex justify-between items-center select-none border-b border-[#D9D9D9] pb-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-text-main flex items-center gap-1.5">
-              <Sparkles className="w-5 h-5 text-primary-gold" />
+            <h1 className="text-base font-bold tracking-tight text-[#111827] flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-[#D4AF37]" />
               AurumPro Ledger — Voucher Transactions
             </h1>
-            <p className="text-xs text-text-muted mt-1">
+            <p className="text-[10px] text-gray-500 mt-0.5">
               Traditional jewellery accounting ledger system. High-density display console, searchable autocomplete client fields, and real-time summaries.
             </p>
           </div>
-          <div className="flex items-center space-x-1.5 text-[10px] text-success-custom bg-success-custom/10 border border-success-custom/25 px-2.5 py-1 rounded font-bold uppercase tracking-wider">
+          <div className="flex items-center space-x-1.5 text-[10px] text-[#10B981] bg-[#10B981]/10 border border-[#10B981]/20 px-2 py-0.5 rounded font-bold">
             <CheckCircle className="w-3.5 h-3.5" />
             <span>Accounting Node Online</span>
           </div>
         </div>
 
         {/* Section 1 — Transaction Entry Row */}
-        <div className="bg-card-bg border border-border-custom rounded-md p-4 shadow-sm">
-          <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-3 select-none flex justify-between">
+        <div className="bg-white border border-[#D9D9D9] rounded p-3 shadow-xs">
+          <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-2 select-none flex justify-between">
             <span>Transaction Entry Row Console</span>
-            <span className="text-text-muted/75 font-semibold">ESC to clear form</span>
+            <span className="text-gray-400 font-medium">ESC to clear form</span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
             
             {/* 1. Date */}
             <div className="flex flex-col space-y-1 md:col-span-1">
-              <label className="text-[9px] font-bold text-text-muted uppercase">Date</label>
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Date</label>
               <input
                 id="date-input"
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
                 onKeyDown={(e) => handleFieldKeyDown(e, 'date')}
-                className="w-full bg-bg-app border border-border-custom focus:border-primary-gold outline-none rounded px-2.5 py-1.5 text-xs text-text-main font-mono h-8"
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-1 text-xs text-[#111827] font-mono h-7"
               />
             </div>
 
             {/* 2. Client Name Searchable Dropdown */}
             <div className="flex flex-col space-y-1 relative md:col-span-2">
-              <label className="text-[9px] font-bold text-text-muted uppercase">Client Name</label>
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Client Name</label>
               <input
                 id="client-input"
                 type="text"
@@ -487,11 +486,11 @@ export default function TransactionsPage() {
                 onFocus={() => setShowClientDropdown(true)}
                 onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
                 onKeyDown={(e) => handleFieldKeyDown(e, 'client')}
-                className="w-full bg-bg-app border border-border-custom focus:border-primary-gold outline-none rounded px-2.5 py-1.5 text-xs text-text-main font-bold h-8"
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-1 text-xs text-[#111827] font-bold h-7"
               />
               
               {showClientDropdown && filteredClients.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 bg-sidebar-bg border border-border-custom rounded shadow-lg max-h-40 overflow-y-auto z-50">
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#D9D9D9] rounded shadow-lg max-h-40 overflow-y-auto z-50">
                   {filteredClients.map((client, idx) => {
                     const isHighlighted = idx === highlightedClientIdx;
                     return (
@@ -503,8 +502,8 @@ export default function TransactionsPage() {
                           setShowClientDropdown(false);
                           focusField('type-select');
                         }}
-                        className={`px-3 py-2 text-xs font-semibold cursor-pointer border-b border-border-custom/50 last:border-b-0 ${
-                          isHighlighted ? 'bg-primary-gold text-white font-bold' : 'text-text-main hover:bg-bg-app'
+                        className={`px-3 py-1.5 text-xs font-semibold cursor-pointer border-b border-[#F0F0F0] last:border-b-0 ${
+                          isHighlighted ? 'bg-[#D4AF37] text-white' : 'text-[#111827] hover:bg-gray-100'
                         }`}
                       >
                         {client.name}
@@ -517,71 +516,66 @@ export default function TransactionsPage() {
 
             {/* 3. Type select */}
             <div className="flex flex-col space-y-1 md:col-span-1">
-              <label className="text-[9px] font-bold text-text-muted uppercase">Type</label>
-              <div className="relative">
-                <select
-                  id="type-select"
-                  value={formData.particular}
-                  onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value as LedgerRow['particular'] }))}
-                  onKeyDown={(e) => handleFieldKeyDown(e, 'type')}
-                  className="w-full bg-bg-app border border-border-custom focus:border-primary-gold outline-none rounded px-2.5 py-1.5 text-xs text-text-main font-semibold h-8 appearance-none cursor-pointer pr-7"
-                >
-                  <option value="WT RCVD" className="text-text-main bg-card-bg">WT RCVD</option>
-                  <option value="Sale" className="text-text-main bg-card-bg">Sale</option>
-                  <option value="Adjustment" className="text-text-main bg-card-bg">Adjustment</option>
-                  <option value="Opening Balance" className="text-text-main bg-card-bg">Opening Bal</option>
-                </select>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">
-                  <ChevronDown className="w-3 h-3" />
-                </div>
-              </div>
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Type</label>
+              <select
+                id="type-select"
+                value={formData.particular}
+                onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value as LedgerRow['particular'] }))}
+                onKeyDown={(e) => handleFieldKeyDown(e, 'type')}
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-0.5 text-xs text-[#111827] font-semibold h-7 appearance-none cursor-pointer"
+              >
+                <option value="WT RCVD">WT RCVD</option>
+                <option value="Sale">Sale</option>
+                <option value="Adjustment">Adjustment</option>
+                <option value="Opening Balance">Opening Bal</option>
+              </select>
             </div>
 
             {/* 4. Gross Weight */}
             <div className="flex flex-col space-y-1 md:col-span-1">
-              <label className="text-[9px] font-bold text-text-muted uppercase">Gross Wt</label>
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Gross Weight</label>
               <input
                 id="gross-input"
                 type="number"
                 step="any"
-                placeholder="0.000"
+                placeholder="0.00"
                 value={formData.grossWeight}
                 onChange={(e) => setFormData(prev => ({ ...prev, grossWeight: e.target.value }))}
                 onKeyDown={(e) => handleFieldKeyDown(e, 'gross')}
-                className="w-full bg-bg-app border border-border-custom focus:border-primary-gold outline-none rounded px-2.5 py-1.5 text-xs text-text-main font-bold text-right h-8"
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-1 text-xs text-[#111827] font-bold text-right h-7"
               />
             </div>
 
             {/* 5. Stone Weight */}
             <div className="flex flex-col space-y-1 md:col-span-1">
-              <label className="text-[9px] font-bold text-text-muted uppercase">Stone Wt</label>
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Stone Weight</label>
               <input
                 id="stone-input"
                 type="number"
                 step="any"
-                placeholder="0.000"
+                placeholder="0.00"
                 value={formData.stoneWeight}
                 onChange={(e) => setFormData(prev => ({ ...prev, stoneWeight: e.target.value }))}
                 onKeyDown={(e) => handleFieldKeyDown(e, 'stone')}
-                className="w-full bg-bg-app border border-border-custom focus:border-primary-gold outline-none rounded px-2.5 py-1.5 text-xs text-text-muted text-right h-8"
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-1 text-xs text-gray-500 text-right h-7"
               />
             </div>
 
             {/* 6. Net Weight (Read-only) */}
             <div className="flex flex-col space-y-1 md:col-span-1">
-              <label className="text-[9px] font-bold text-text-muted uppercase bg-bg-app/80 px-1 py-0.5 rounded leading-none text-center">Net Wt</label>
+              <label className="text-[8px] font-bold text-gray-500 uppercase bg-gray-100 px-1 py-0.5 rounded leading-none text-center">Net Wt</label>
               <input
                 id="net-input"
                 type="number"
                 value={netWeight.toFixed(3)}
                 readOnly
-                className="w-full bg-bg-app border border-border-custom outline-none rounded px-2.5 py-1.5 text-xs text-text-muted font-bold text-right cursor-not-allowed h-8"
+                className="w-full bg-[#F3F4F6] border border-[#D9D9D9] outline-none rounded px-2 py-1 text-xs text-gray-700 font-bold text-right cursor-not-allowed h-7"
               />
             </div>
 
             {/* 7. Touch */}
             <div className="flex flex-col space-y-1 md:col-span-1">
-              <label className="text-[9px] font-bold text-text-muted uppercase">Touch (%)</label>
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Touch (%)</label>
               <input
                 id="touch-input"
                 type="number"
@@ -590,33 +584,33 @@ export default function TransactionsPage() {
                 value={formData.touch}
                 onChange={(e) => setFormData(prev => ({ ...prev, touch: e.target.value }))}
                 onKeyDown={(e) => handleFieldKeyDown(e, 'touch')}
-                className="w-full bg-bg-app border border-border-custom focus:border-primary-gold outline-none rounded px-2.5 py-1.5 text-xs text-primary-gold font-bold text-center h-8"
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-1 text-xs text-[#D4AF37] font-bold text-center h-7"
               />
             </div>
 
             {/* 8. Fine Gold (Read-only) */}
             <div className="flex flex-col space-y-1 md:col-span-1">
-              <label className="text-[9px] font-bold text-text-muted uppercase bg-bg-app/80 px-1 py-0.5 rounded leading-none text-center">Fine Gold</label>
+              <label className="text-[8px] font-bold text-gray-500 uppercase bg-gray-100 px-1 py-0.5 rounded leading-none text-center">Fine Gold</label>
               <input
                 id="fine-input"
                 type="number"
                 value={fineGold.toFixed(3)}
                 readOnly
-                className="w-full bg-bg-app border border-border-custom outline-none rounded px-2.5 py-1.5 text-xs text-text-main font-bold text-right cursor-not-allowed h-8"
+                className="w-full bg-[#F3F4F6] border border-[#D9D9D9] outline-none rounded px-2 py-1 text-xs text-gray-700 font-bold text-right cursor-not-allowed h-7"
               />
             </div>
 
             {/* 9. Notes */}
             <div className="flex flex-col space-y-1 md:col-span-2">
-              <label className="text-[9px] font-bold text-text-muted uppercase">Notes</label>
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Notes</label>
               <input
                 id="notes-input"
                 type="text"
-                placeholder="Voucher notes..."
+                placeholder="Voucher notes memo..."
                 value={formData.notes}
                 onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                 onKeyDown={(e) => handleFieldKeyDown(e, 'notes')}
-                className="w-full bg-bg-app border border-border-custom focus:border-primary-gold outline-none rounded px-2.5 py-1.5 text-xs text-text-main font-medium h-8"
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-1 text-xs text-[#111827] font-medium h-7"
               />
             </div>
 
@@ -626,12 +620,12 @@ export default function TransactionsPage() {
                 id="action-btn"
                 type="button"
                 onClick={handleSave}
-                className={`w-full py-1.5 rounded-md font-bold text-xs text-white shadow-sm transition-opacity hover:opacity-90 cursor-pointer select-none h-8 flex items-center justify-center gap-1 ${
-                  formData.id ? 'bg-success-custom' : 'bg-primary-gold'
+                className={`w-full py-1 rounded font-bold text-xs text-white shadow-xs transition-colors cursor-pointer select-none h-7 flex items-center justify-center gap-1 ${
+                  formData.id ? 'bg-[#10B981] hover:bg-[#0D9465]' : 'bg-[#D4AF37] hover:bg-[#B7952F]'
                 }`}
               >
                 <span>{formData.id ? 'Update' : 'Add'}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-3 h-3" />
               </button>
             </div>
 
@@ -640,53 +634,53 @@ export default function TransactionsPage() {
 
         {/* Success Alert Banner */}
         {successMsg && (
-          <div className="bg-success-custom/10 border border-success-custom/25 p-3 rounded flex items-center space-x-2 text-xs text-text-main animate-in fade-in duration-200 select-none">
-            <CheckCircle className="w-4 h-4 text-success-custom flex-shrink-0" />
+          <div className="bg-[#10B981]/10 border border-[#10B981]/25 p-3 rounded flex items-center space-x-2 text-xs text-[#111827] animate-in fade-in duration-200 select-none">
+            <CheckCircle className="w-4 h-4 text-[#10B981] flex-shrink-0" />
             <span className="font-bold">{successMsg}</span>
           </div>
         )}
 
         {/* Summary Aggregates Header Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 select-none">
-          <div className="bg-card-bg border border-border-custom p-4 rounded-md shadow-sm flex items-center space-x-3 hover:border-primary-gold/45 transition-colors">
-            <div className="w-8 h-8 rounded bg-primary-gold/10 flex items-center justify-center font-bold text-primary-gold text-xs">G</div>
+          <div className="bg-white border border-[#D9D9D9] p-3.5 rounded shadow-xs flex items-center space-x-3">
+            <div className="w-8 h-8 rounded bg-[#D4AF37]/10 flex items-center justify-center font-bold text-[#D4AF37] text-xs">G</div>
             <div>
-              <span className="text-[10px] font-bold text-text-muted uppercase block leading-none">Total Gross Weight</span>
-              <span className="text-sm font-bold text-text-main block mt-1.5">{totals.gross} g</span>
+              <span className="text-[9px] font-bold text-gray-500 uppercase block leading-none">Total Gross Weight</span>
+              <span className="text-sm font-bold text-[#111827] block mt-1">{totals.gross} g</span>
             </div>
           </div>
-          <div className="bg-card-bg border border-border-custom p-4 rounded-md shadow-sm flex items-center space-x-3 hover:border-primary-gold/45 transition-colors">
-            <div className="w-8 h-8 rounded bg-border-custom flex items-center justify-center font-bold text-text-muted text-xs">S</div>
+          <div className="bg-white border border-[#D9D9D9] p-3.5 rounded shadow-xs flex items-center space-x-3">
+            <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-xs">S</div>
             <div>
-              <span className="text-[10px] font-bold text-text-muted uppercase block leading-none">Total Stone Weight</span>
-              <span className="text-sm font-bold text-text-main block mt-1.5">{totals.stone} g</span>
+              <span className="text-[9px] font-bold text-gray-500 uppercase block leading-none">Total Stone Weight</span>
+              <span className="text-sm font-bold text-[#111827] block mt-1">{totals.stone} g</span>
             </div>
           </div>
-          <div className="bg-card-bg border border-border-custom p-4 rounded-md shadow-sm flex items-center space-x-3 hover:border-primary-gold/45 transition-colors">
-            <div className="w-8 h-8 rounded bg-success-custom/10 flex items-center justify-center font-bold text-success-custom text-xs">N</div>
+          <div className="bg-white border border-[#D9D9D9] p-3.5 rounded shadow-xs flex items-center space-x-3">
+            <div className="w-8 h-8 rounded bg-[#10B981]/10 flex items-center justify-center font-bold text-[#10B981] text-xs">N</div>
             <div>
-              <span className="text-[10px] font-bold text-text-muted uppercase block leading-none">Total Net Weight</span>
-              <span className="text-sm font-bold text-text-main block mt-1.5">{totals.net} g</span>
+              <span className="text-[9px] font-bold text-gray-500 uppercase block leading-none">Total Net Weight</span>
+              <span className="text-sm font-bold text-[#111827] block mt-1">{totals.net} g</span>
             </div>
           </div>
-          <div className="bg-card-bg border border-border-custom p-4 rounded-md shadow-sm flex items-center space-x-3 hover:border-primary-gold/45 transition-colors">
-            <div className="w-8 h-8 rounded bg-primary-gold/15 flex items-center justify-center font-bold text-primary-gold text-xs">F</div>
+          <div className="bg-white border border-[#D9D9D9] p-3.5 rounded shadow-xs flex items-center space-x-3">
+            <div className="w-8 h-8 rounded bg-[#D4AF37]/15 flex items-center justify-center font-bold text-[#D4AF37] text-xs">F</div>
             <div>
-              <span className="text-[10px] font-bold text-text-muted uppercase block leading-none">Total Fine Gold</span>
-              <span className="text-sm font-bold text-text-main block mt-1.5">{totals.fine} g</span>
+              <span className="text-[9px] font-bold text-gray-500 uppercase block leading-none">Total Fine Gold</span>
+              <span className="text-sm font-bold text-[#111827] block mt-1">{totals.fine} g</span>
             </div>
           </div>
         </div>
 
         {/* Section 2 — Ledger Table */}
-        <div className="bg-card-bg border border-border-custom rounded-md shadow-sm flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-border-custom bg-sidebar-bg/40 flex justify-between items-center select-none">
+        <div className="bg-white border border-[#D9D9D9] rounded shadow-sm flex flex-col overflow-hidden">
+          <div className="p-3 border-b border-[#D9D9D9] bg-gray-50 flex justify-between items-center select-none">
             <div>
-              <h2 className="text-xs font-bold text-text-main">Voucher History Records</h2>
-              <p className="text-[10px] text-text-muted mt-0.5">Click row and press Ctrl+E to edit, or Ctrl+Delete to remove records.</p>
+              <h2 className="text-xs font-bold text-[#111827]">Voucher History Records</h2>
+              <p className="text-[10px] text-gray-500 mt-0.5">Double click / click row, and press Ctrl+E to edit, or Ctrl+Delete to remove records.</p>
             </div>
             {selectedRowId && (
-              <span className="text-[10px] font-bold text-primary-gold uppercase tracking-wider bg-primary-gold/10 px-2.5 py-0.5 rounded animate-pulse">
+              <span className="text-[9px] font-bold text-[#D4AF37] uppercase tracking-wider bg-[#D4AF37]/10 px-2 py-0.5 rounded animate-pulse">
                 Row Selected
               </span>
             )}
@@ -694,20 +688,20 @@ export default function TransactionsPage() {
 
           <div className="overflow-x-auto max-h-[50vh] scrollbar-thin">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="sticky top-0 bg-sidebar-bg/90 backdrop-blur-sm z-20 border-b border-border-custom">
-                <tr className="text-[10px] font-bold text-text-muted uppercase select-none">
-                  <th className="p-3 pl-4 w-[11%]">Date</th>
-                  <th className="p-3 w-[20%]">Client Name</th>
-                  <th className="p-3 text-right w-[11%]">Gross Wt (g)</th>
-                  <th className="p-3 text-right w-[11%]">Stone Wt (g)</th>
-                  <th className="p-3 text-right w-[11%]">Net Wt (g)</th>
-                  <th className="p-3 text-center w-[10%]">Touch (%)</th>
-                  <th className="p-3 text-right w-[12%]">Fine Gold (g)</th>
-                  <th className="p-3">Notes</th>
-                  <th className="p-3 text-center pr-4 w-[8%]">Actions</th>
+              <thead className="sticky top-0 bg-gray-50 z-20 border-b border-[#D9D9D9]">
+                <tr className="text-[9px] font-bold text-gray-500 uppercase select-none">
+                  <th className="p-2.5 pl-4 w-[11%]">Date</th>
+                  <th className="p-2.5 w-[20%]">Client Name</th>
+                  <th className="p-2.5 text-right w-[11%]">Gross Wt (g)</th>
+                  <th className="p-2.5 text-right w-[11%]">Stone Wt (g)</th>
+                  <th className="p-2.5 text-right w-[11%]">Net Wt (g)</th>
+                  <th className="p-2.5 text-center w-[10%]">Touch (%)</th>
+                  <th className="p-2.5 text-right w-[12%]">Fine Gold (g)</th>
+                  <th className="p-2.5">Notes</th>
+                  <th className="p-2.5 text-center pr-4 w-[8%]">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border-custom/50 font-medium">
+              <tbody className="divide-y divide-[#D9D9D9]/50 font-medium">
                 {gridRows.length > 0 ? (
                   gridRows.map((row) => {
                     const isSelected = row.id === selectedRowId;
@@ -718,25 +712,25 @@ export default function TransactionsPage() {
                       <tr 
                         key={row.id}
                         onClick={() => setSelectedRowId(row.id)}
-                        className={`transition-colors border-l-2 cursor-pointer ${
+                        className={`transition-colors border-l-2 ${
                           isSelected 
-                            ? 'bg-primary-gold/5 border-primary-gold text-text-main' 
-                            : 'hover:bg-bg-app border-transparent text-text-main odd:bg-card-bg/50'
+                            ? 'bg-[#D4AF37]/5 border-[#D4AF37]' 
+                            : 'hover:bg-gray-50/70 border-transparent odd:bg-[#FDFDFD]'
                         }`}
                       >
                         {/* 1. Date */}
-                        <td className="p-3 pl-4 font-mono text-text-muted">
+                        <td className="p-2.5 pl-4 font-mono text-gray-500">
                           {new Date(row.date).toLocaleDateString()}
                         </td>
 
                         {/* 2. Client Name + Type Badge */}
-                        <td className="p-3 font-bold text-text-main">
-                          <div className="flex items-center space-x-2">
+                        <td className="p-2.5 font-bold text-[#111827]">
+                          <div className="flex items-center space-x-1.5">
                             <span>{clientName}</span>
-                            <span className={`px-1.5 py-0.2 text-[9px] rounded font-bold uppercase tracking-wider ${
+                            <span className={`px-1 py-0.2 text-[8px] rounded font-bold ${
                               row.particular === 'Sale' 
-                                ? 'bg-danger-custom/10 text-danger-custom' 
-                                : 'bg-success-custom/10 text-success-custom'
+                                ? 'bg-[#EF4444]/10 text-[#EF4444]' 
+                                : 'bg-[#10B981]/10 text-[#10B981]'
                             }`}>
                               {row.particular}
                             </span>
@@ -744,57 +738,57 @@ export default function TransactionsPage() {
                         </td>
 
                         {/* 3. Gross Weight */}
-                        <td className="p-3 text-right text-text-main font-bold">
+                        <td className="p-2.5 text-right text-gray-900 font-bold">
                           {row.grossWeight.toFixed(3)}
                         </td>
 
                         {/* 4. Stone Weight */}
-                        <td className="p-3 text-right text-text-muted">
+                        <td className="p-2.5 text-right text-gray-500">
                           {row.stoneWeight.toFixed(3)}
                         </td>
 
                         {/* 5. Net Weight */}
-                        <td className="p-3 text-right text-text-main font-bold">
+                        <td className="p-2.5 text-right text-gray-900 font-bold">
                           {row.netWeight.toFixed(3)}
                         </td>
 
                         {/* 6. Touch */}
-                        <td className="p-3 text-center text-primary-gold font-bold">
+                        <td className="p-2.5 text-center text-[#D4AF37] font-bold">
                           {row.touch.toFixed(2)}%
                         </td>
 
                         {/* 7. Fine Gold */}
-                        <td className="p-3 text-right text-text-main font-extrabold">
+                        <td className="p-2.5 text-right text-gray-900 font-extrabold">
                           {row.purity.toFixed(3)}
                         </td>
 
                         {/* 8. Notes */}
-                        <td className="p-3 text-text-muted italic max-w-[200px] truncate">
+                        <td className="p-2.5 text-gray-500 italic max-w-[200px] truncate">
                           {row.notes}
                         </td>
 
                         {/* 9. Action triggers */}
-                        <td className="p-3 text-center pr-4">
-                          <div className="flex items-center justify-center space-x-2.5">
+                        <td className="p-2.5 text-center pr-4">
+                          <div className="flex items-center justify-center space-x-2">
                             <button
                               onClick={() => {
                                 setEditPopupRow(row);
                                 setShowEditPopup(true);
                               }}
-                              className="p-1.5 rounded text-text-muted hover:text-success-custom hover:bg-success-custom/5 transition-colors cursor-pointer"
+                              className="p-1 rounded text-gray-400 hover:text-[#10B981] hover:bg-[#10B981]/5 transition-colors cursor-pointer"
                               title="Edit Row record"
                             >
-                              <Edit3 className="w-4 h-4" />
+                              <Edit3 className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => {
                                 setDeletePopupRow(row);
                                 setShowDeletePopup(true);
                               }}
-                              className="p-1.5 rounded text-text-muted hover:text-danger-custom hover:bg-danger-custom/5 transition-colors cursor-pointer"
+                              className="p-1 rounded text-gray-400 hover:text-[#EF4444] hover:bg-[#EF4444]/5 transition-colors cursor-pointer"
                               title="Delete Row record"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
@@ -804,7 +798,7 @@ export default function TransactionsPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-text-muted select-none">
+                    <td colSpan={9} className="p-8 text-center text-gray-500 select-none">
                       No voucher transactions logged. Enter a new weight record at the top console to begin.
                     </td>
                   </tr>
@@ -815,15 +809,15 @@ export default function TransactionsPage() {
         </div>
 
         {/* Keyboard Instructions Info Bar */}
-        <div className="bg-primary-gold/5 border border-primary-gold/20 p-4 rounded-md flex items-start space-x-2.5 select-none text-xs">
-          <Info className="w-4.5 h-4.5 text-primary-gold flex-shrink-0 mt-0.5" />
+        <div className="bg-[#D4AF37]/5 border border-[#D4AF37]/25 p-3.5 rounded flex items-start space-x-2.5 select-none text-xs">
+          <Info className="w-4 h-4 text-[#D4AF37] flex-shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <span className="font-bold text-primary-gold block">Operator Keyboard Shortcuts:</span>
-            <span className="text-text-muted leading-relaxed block">
-              • Press <span className="font-semibold text-text-main">Enter / Tab</span> to shift focus forward between entry inputs.<br />
-              • Press <span className="font-semibold text-text-main">Enter</span> on the Notes field to save/update immediately.<br />
-              • Press <span className="font-semibold text-text-main">ESC</span> to reset the console inputs.<br />
-              • Select any table row and press <span className="font-semibold text-text-main">Ctrl + E</span> to edit, or <span className="font-semibold text-text-main">Ctrl + Delete</span> to delete.
+            <span className="font-bold text-[#D4AF37] block">Operator Keyboard Shortcuts:</span>
+            <span className="text-gray-500 leading-relaxed block">
+              • Press <span className="font-semibold text-gray-700">Enter / Tab</span> to shift focus forward between entry inputs.<br />
+              • Press <span className="font-semibold text-gray-700">Enter</span> on the Notes field to save/update immediately.<br />
+              • Press <span className="font-semibold text-gray-700">ESC</span> to reset the console inputs.<br />
+              • Select any table row and press <span className="font-semibold text-gray-700">Ctrl + E</span> to edit, or <span className="font-semibold text-gray-700">Ctrl + Delete</span> to delete.
             </span>
           </div>
         </div>
@@ -832,31 +826,31 @@ export default function TransactionsPage() {
 
         {/* Edit Confirmation Modal */}
         {showEditPopup && editPopupRow && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-sidebar-bg border border-border-custom rounded-md shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-100">
-              <div className="p-4 border-b border-border-custom bg-bg-app/40 flex justify-between items-center select-none">
-                <span className="font-bold text-xs text-text-main">Edit Transaction</span>
+          <div className="fixed inset-0 bg-black/45 z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-[#D9D9D9] rounded-md shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-100">
+              <div className="p-3 border-b border-[#D9D9D9] bg-gray-50 flex justify-between items-center select-none">
+                <span className="font-bold text-xs text-[#111827]">Edit Transaction</span>
                 <button 
                   onClick={() => setShowEditPopup(false)}
-                  className="p-1 hover:bg-bg-app rounded text-text-muted hover:text-text-main"
+                  className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="p-5 space-y-4 text-xs">
-                <p className="text-text-muted font-medium">
+              <div className="p-4 space-y-4 text-xs">
+                <p className="text-gray-600 font-medium">
                   Do you want to edit this transaction? This will populate the Entry Row console with its parameters.
                 </p>
-                <div className="flex justify-end gap-2 pt-3 border-t border-border-custom">
+                <div className="flex justify-end gap-2 pt-2 border-t border-[#D9D9D9]">
                   <button 
                     onClick={() => setShowEditPopup(false)}
-                    className="px-4 py-1.5 border border-border-custom rounded font-bold text-text-muted hover:text-text-main bg-bg-app cursor-pointer"
+                    className="px-4 py-1.5 border border-[#D9D9D9] rounded font-bold text-gray-500 hover:text-gray-700 bg-white cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button 
                     onClick={handleConfirmEdit}
-                    className="px-4 py-1.5 bg-primary-gold hover:opacity-90 rounded font-bold text-white shadow-sm cursor-pointer"
+                    className="px-4 py-1.5 bg-[#D4AF37] hover:bg-[#B7952F] rounded font-bold text-white shadow-xs cursor-pointer"
                   >
                     Edit
                   </button>
@@ -868,32 +862,32 @@ export default function TransactionsPage() {
 
         {/* Delete Confirmation Modal */}
         {showDeletePopup && deletePopupRow && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-sidebar-bg border border-border-custom rounded-md shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-100">
-              <div className="p-4 border-b border-border-custom bg-bg-app/40 flex justify-between items-center select-none">
-                <span className="font-bold text-xs text-danger-custom">Delete Transaction</span>
+          <div className="fixed inset-0 bg-black/45 z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-[#D9D9D9] rounded-md shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-100">
+              <div className="p-3 border-b border-[#D9D9D9] bg-gray-50 flex justify-between items-center select-none">
+                <span className="font-bold text-xs text-[#EF4444]">Delete Transaction</span>
                 <button 
                   onClick={() => setShowDeletePopup(false)}
-                  className="p-1 hover:bg-bg-app rounded text-text-muted hover:text-text-main"
+                  className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="p-5 space-y-4 text-xs">
-                <p className="text-text-muted font-medium leading-relaxed">
+              <div className="p-4 space-y-4 text-xs">
+                <p className="text-gray-600 font-medium leading-relaxed">
                   Are you sure you want to delete this transaction?<br />
-                  <span className="font-bold text-danger-custom">This action cannot be undone.</span>
+                  <span className="font-bold text-[#EF4444]">This action cannot be undone.</span>
                 </p>
-                <div className="flex justify-end gap-2 pt-3 border-t border-border-custom">
+                <div className="flex justify-end gap-2 pt-2 border-t border-[#D9D9D9]">
                   <button 
                     onClick={() => setShowDeletePopup(false)}
-                    className="px-4 py-1.5 border border-border-custom rounded font-bold text-text-muted hover:text-text-main bg-bg-app cursor-pointer"
+                    className="px-4 py-1.5 border border-[#D9D9D9] rounded font-bold text-gray-500 hover:text-gray-700 bg-white cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button 
                     onClick={handleConfirmDelete}
-                    className="px-4 py-1.5 bg-danger-custom hover:opacity-90 rounded font-bold text-white shadow-sm cursor-pointer"
+                    className="px-4 py-1.5 bg-[#EF4444] hover:bg-[#D93838] rounded font-bold text-white shadow-xs cursor-pointer"
                   >
                     Delete
                   </button>

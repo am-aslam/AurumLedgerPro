@@ -27,8 +27,8 @@ export async function POST(req: Request) {
       }
 
       const insertRow = db.prepare(`
-        INSERT INTO LedgerRow (id, accountId, date, particular, grossWeight, stoneWeight, netWeight, touch, added_touch, touch_value, debit, credit, balance, notes, attachments, createdDate, updatedDate)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, '[]', ?, ?)
+        INSERT INTO LedgerRow (id, accountId, date, particular, grossWeight, stoneWeight, netWeight, touch, added_touch, touch_value, fineGold, debit, credit, balance, notes, attachments, createdDate, updatedDate)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, '[]', ?, ?)
       `);
 
       // Insert all rows in database
@@ -37,10 +37,8 @@ export async function POST(req: Request) {
         const stoneNum = parseFloat(r.stoneWeight) || 0;
         const netWeight = parseFloat((grossNum - stoneNum).toFixed(3));
         const touchNum = parseFloat(r.touch) || 0;
-        const addedTouchNum = parseFloat(r.added_touch) || 0;
 
-        const fineWeight = parseFloat(((netWeight * addedTouchNum) / 100).toFixed(3));
-        const touch_value = parseFloat(((netWeight * addedTouchNum) / 100).toFixed(3));
+        const fineWeight = parseFloat(((netWeight * touchNum) / 100).toFixed(3));
 
         const isCredit = r.particular === 'Opening Balance' || r.particular === 'WT RCVD';
         const credit = isCredit ? fineWeight : 0;
@@ -58,8 +56,9 @@ export async function POST(req: Request) {
           stoneNum,
           netWeight,
           touchNum,
-          addedTouchNum,
-          touch_value,
+          touchNum,
+          fineWeight,
+          fineWeight,
           debit,
           credit,
           r.notes || '',

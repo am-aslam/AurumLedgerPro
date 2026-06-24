@@ -73,13 +73,11 @@ export async function PATCH(
       if (field === 'grossWeight' || field === 'stoneWeight' || field === 'touch' || field === 'added_touch' || field === 'particular') {
         const grossWeight = field === 'grossWeight' ? parseFloat(value) : row.grossWeight;
         const stoneWeight = field === 'stoneWeight' ? parseFloat(value) : row.stoneWeight;
-        const touch = field === 'touch' ? parseFloat(value) : row.touch;
-        const added_touch = field === 'added_touch' ? parseFloat(value) : row.added_touch;
+        const touch = (field === 'touch' || field === 'added_touch') ? parseFloat(value) : row.touch;
         const particular = field === 'particular' ? value : row.particular;
 
         const netWeight = parseFloat((grossWeight - stoneWeight).toFixed(3));
-        const fineWeight = parseFloat(((netWeight * added_touch) / 100).toFixed(3));
-        const touch_value = parseFloat(((netWeight * added_touch) / 100).toFixed(3));
+        const fineWeight = parseFloat(((netWeight * touch) / 100).toFixed(3));
 
         const isCredit = particular === 'Opening Balance' || particular === 'WT RCVD';
         const credit = isCredit ? fineWeight : 0;
@@ -88,10 +86,11 @@ export async function PATCH(
         updateData.grossWeight = grossWeight;
         updateData.stoneWeight = stoneWeight;
         updateData.touch = touch;
-        updateData.added_touch = added_touch;
+        updateData.added_touch = touch;
         updateData.particular = particular;
         updateData.netWeight = netWeight;
-        updateData.touch_value = touch_value;
+        updateData.touch_value = fineWeight;
+        updateData.fineGold = fineWeight;
         updateData.credit = credit;
         updateData.debit = debit;
       } else {
@@ -104,12 +103,11 @@ export async function PATCH(
       const particular = body.particular ?? row.particular;
       const grossWeight = body.grossWeight !== undefined ? parseFloat(body.grossWeight) : row.grossWeight;
       const stoneWeight = body.stoneWeight !== undefined ? parseFloat(body.stoneWeight) : row.stoneWeight;
-      const added_touch = body.added_touch !== undefined ? parseFloat(body.added_touch) : row.added_touch;
+      const touch = body.touch !== undefined ? parseFloat(body.touch) : (body.added_touch !== undefined ? parseFloat(body.added_touch) : row.touch);
       const notes = body.notes !== undefined ? body.notes : row.notes;
 
       const netWeight = parseFloat((grossWeight - stoneWeight).toFixed(3));
-      const fineWeight = parseFloat(((netWeight * added_touch) / 100).toFixed(3));
-      const touch_value = parseFloat(((netWeight * added_touch) / 100).toFixed(3));
+      const fineWeight = parseFloat(((netWeight * touch) / 100).toFixed(3));
 
       const isCredit = particular === 'Opening Balance' || particular === 'WT RCVD';
       const credit = isCredit ? fineWeight : 0;
@@ -119,10 +117,11 @@ export async function PATCH(
       updateData.particular = particular;
       updateData.grossWeight = grossWeight;
       updateData.stoneWeight = stoneWeight;
-      updateData.touch = added_touch; // sync both to added_touch
-      updateData.added_touch = added_touch;
+      updateData.touch = touch;
+      updateData.added_touch = touch;
       updateData.netWeight = netWeight;
-      updateData.touch_value = touch_value;
+      updateData.touch_value = fineWeight;
+      updateData.fineGold = fineWeight;
       updateData.credit = credit;
       updateData.debit = debit;
       updateData.notes = notes;

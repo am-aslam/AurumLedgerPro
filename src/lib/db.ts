@@ -46,6 +46,7 @@ db.exec(`
     touch REAL NOT NULL,
     added_touch REAL DEFAULT 0.0,
     touch_value REAL DEFAULT 0.0,
+    fineGold REAL DEFAULT 0.0,
     debit REAL DEFAULT 0.0,
     credit REAL DEFAULT 0.0,
     balance REAL DEFAULT 0.0,
@@ -86,6 +87,12 @@ db.exec(`
     value TEXT NOT NULL
   );
 `);
+
+try {
+  db.exec("ALTER TABLE LedgerRow ADD COLUMN fineGold REAL DEFAULT 0.0;");
+} catch (e) {
+  // Column already exists or error, safe to ignore
+}
 
 // Seeding check to run exactly once
 const setting = db.prepare("SELECT value FROM SystemSetting WHERE key = 'seeded'").get() as any;
@@ -221,8 +228,8 @@ if (!setting) {
       VALUES (?, ?, ?, ?, ?)
     `);
     const insertRow = db.prepare(`
-      INSERT INTO LedgerRow (id, accountId, date, particular, grossWeight, stoneWeight, netWeight, touch, added_touch, touch_value, debit, credit, balance, notes, attachments, createdDate, updatedDate)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO LedgerRow (id, accountId, date, particular, grossWeight, stoneWeight, netWeight, touch, added_touch, touch_value, fineGold, debit, credit, balance, notes, attachments, createdDate, updatedDate)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const transaction = db.transaction(() => {
@@ -232,6 +239,7 @@ if (!setting) {
 
         for (const row of seed.ledger) {
           const rowId = crypto.randomUUID();
+          const fineGoldSeed = row.credit || row.debit || 0;
           insertRow.run(
             rowId,
             accountId,
@@ -241,8 +249,9 @@ if (!setting) {
             row.stoneWeight,
             row.netWeight,
             row.touch,
-            row.added_touch,
-            row.touch_value,
+            row.touch,
+            fineGoldSeed,
+            fineGoldSeed,
             row.debit,
             row.credit,
             row.balance,

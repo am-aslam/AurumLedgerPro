@@ -67,9 +67,9 @@ export async function POST(req: Request) {
         const rowId = crypto.randomUUID();
         const createdDate = new Date().toISOString();
         db.prepare(`
-          INSERT INTO LedgerRow (id, accountId, date, particular, grossWeight, stoneWeight, netWeight, touch, added_touch, touch_value, debit, credit, balance, notes, attachments, createdDate, updatedDate)
-          VALUES (?, ?, ?, 'Opening Balance', ?, ?, ?, ?, ?, ?, 0, ?, ?, 'Manual account initialization physical gold opening balance.', '[]', ?, ?)
-        `).run(rowId, accountId, dateStr, grossWeight, stoneWeight, netWeight, touch, addedTouchNum, touchValue, fineWeight, fineWeight, createdDate, createdDate);
+          INSERT INTO LedgerRow (id, accountId, date, particular, grossWeight, stoneWeight, netWeight, touch, added_touch, touch_value, fineGold, debit, credit, balance, notes, attachments, createdDate, updatedDate)
+          VALUES (?, ?, ?, 'Opening Balance', ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 'Manual account initialization physical gold opening balance.', '[]', ?, ?)
+        `).run(rowId, accountId, dateStr, grossWeight, stoneWeight, netWeight, touch, touch, fineWeight, fineWeight, fineWeight, fineWeight, createdDate, createdDate);
       }
     });
 

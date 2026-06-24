@@ -31,17 +31,13 @@ export async function POST(req: Request) {
     const stoneNum = parseFloat(stoneWeight) || 0;
     const netWeight = parseFloat((grossNum - stoneNum).toFixed(3));
     const touchNum = parseFloat(touch) || 0;
-    const addedTouchNum = parseFloat(added_touch) || 0;
 
     // Purity fineness fine weight
-    const fineWeight = parseFloat(((netWeight * addedTouchNum) / 100).toFixed(3));
+    const fineWeight = parseFloat(((netWeight * touchNum) / 100).toFixed(3));
 
     const isCredit = particular === 'Opening Balance' || particular === 'WT RCVD';
     const credit = isCredit ? fineWeight : 0;
     const debit = !isCredit ? fineWeight : 0;
-
-    // Added Touch calculations
-    const touchValue = parseFloat(((netWeight * addedTouchNum) / 100).toFixed(3));
 
     const attachmentsStr = Array.isArray(attachments) ? JSON.stringify(attachments) : '[]';
     const rowId = crypto.randomUUID();
@@ -49,8 +45,8 @@ export async function POST(req: Request) {
 
     // Insert new row
     db.prepare(`
-      INSERT INTO LedgerRow (id, accountId, date, particular, grossWeight, stoneWeight, netWeight, touch, added_touch, touch_value, debit, credit, balance, notes, attachments, createdDate, updatedDate)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+      INSERT INTO LedgerRow (id, accountId, date, particular, grossWeight, stoneWeight, netWeight, touch, added_touch, touch_value, fineGold, debit, credit, balance, notes, attachments, createdDate, updatedDate)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
     `).run(
       rowId,
       accountId,
@@ -60,8 +56,9 @@ export async function POST(req: Request) {
       stoneNum,
       netWeight,
       touchNum,
-      addedTouchNum,
-      touchValue,
+      touchNum,
+      fineWeight,
+      fineWeight,
       debit,
       credit,
       notes || '',

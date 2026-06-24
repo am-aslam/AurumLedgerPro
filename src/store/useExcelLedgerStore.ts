@@ -18,6 +18,7 @@ export interface LedgerRow {
   touch: number; // e.g. 99.90, 99.50, 91.60, 75.00
   added_touch?: number; // Added Touch % (e.g. 92)
   touch_value?: number; // Calculated Touch = (Net Weight * Added Touch) / 100
+  fineGold?: number; // Calculated Fine Gold = (Net Weight * Touch) / 100
   debit: number; // gold debited (outward)
   credit: number; // gold credited (inbound)
   balance: number; // fine gold running balance
@@ -172,8 +173,8 @@ export const useExcelLedgerStore = create<ExcelLedgerState>()(
         const stoneNum = parseFloat(stoneWeight as any) || 0;
         const netWeight = parseFloat((grossNum - stoneNum).toFixed(3));
         const touchNum = parseFloat(touch as any) || 0;
-        const addedTouchNum = parseFloat(added_touch as any) || 0;
-        const credit = calculateFineWeight(netWeight, touchNum);
+        const fineGoldVal = parseFloat(((netWeight * touchNum) / 100).toFixed(3));
+        const credit = fineGoldVal;
 
         const newAccount: Account = {
           id,
@@ -193,8 +194,9 @@ export const useExcelLedgerStore = create<ExcelLedgerState>()(
             stoneWeight: stoneNum,
             netWeight,
             touch: touchNum,
-            added_touch: addedTouchNum,
-            touch_value: parseFloat(((netWeight * addedTouchNum) / 100).toFixed(3)),
+            added_touch: touchNum,
+            touch_value: fineGoldVal,
+            fineGold: fineGoldVal,
             debit: 0,
             credit,
             balance: credit,
@@ -255,12 +257,11 @@ export const useExcelLedgerStore = create<ExcelLedgerState>()(
         const stoneNum = parseFloat(row.stoneWeight as any) || 0;
         const netWeight = parseFloat((grossNum - stoneNum).toFixed(3));
         const touchNum = parseFloat(row.touch as any) || 0;
-        const addedTouchNum = parseFloat(row.added_touch as any) || 0;
-        const touchValue = parseFloat(((netWeight * addedTouchNum) / 100).toFixed(3));
+        const fineGoldVal = parseFloat(((netWeight * touchNum) / 100).toFixed(3));
 
         const isCredit = row.particular === 'Opening Balance' || row.particular === 'WT RCVD';
-        const credit = isCredit ? touchValue : 0;
-        const debit = !isCredit ? touchValue : 0;
+        const credit = isCredit ? fineGoldVal : 0;
+        const debit = !isCredit ? fineGoldVal : 0;
 
         const newRow: LedgerRow = {
           ...row,
@@ -269,8 +270,9 @@ export const useExcelLedgerStore = create<ExcelLedgerState>()(
           stoneWeight: stoneNum,
           netWeight,
           touch: touchNum,
-          added_touch: addedTouchNum,
-          touch_value: touchValue,
+          added_touch: touchNum,
+          touch_value: fineGoldVal,
+          fineGold: fineGoldVal,
           debit,
           credit,
           balance: 0,
@@ -324,18 +326,21 @@ export const useExcelLedgerStore = create<ExcelLedgerState>()(
                     updatedDate: new Date().toISOString()
                   };
                   
-                  if (field === 'grossWeight' || field === 'stoneWeight' || field === 'added_touch' || field === 'particular') {
+                  if (field === 'grossWeight' || field === 'stoneWeight' || field === 'touch' || field === 'added_touch' || field === 'particular') {
                     const grossNum = parseFloat(updatedRow.grossWeight as any) || 0;
                     const stoneNum = parseFloat(updatedRow.stoneWeight as any) || 0;
                     const netWeight = parseFloat((grossNum - stoneNum).toFixed(3));
-                    const addedTouchNum = parseFloat(updatedRow.added_touch as any) || 0;
-                    const touchValue = parseFloat(((netWeight * addedTouchNum) / 100).toFixed(3));
+                    const touchNum = parseFloat(updatedRow.touch as any) || 0;
+                    const fineGoldVal = parseFloat(((netWeight * touchNum) / 100).toFixed(3));
                     const isCredit = updatedRow.particular === 'Opening Balance' || updatedRow.particular === 'WT RCVD';
                     
                     updatedRow.netWeight = netWeight;
-                    updatedRow.touch_value = touchValue;
-                    updatedRow.credit = isCredit ? touchValue : 0;
-                    updatedRow.debit = !isCredit ? touchValue : 0;
+                    updatedRow.touch = touchNum;
+                    updatedRow.added_touch = touchNum;
+                    updatedRow.touch_value = fineGoldVal;
+                    updatedRow.fineGold = fineGoldVal;
+                    updatedRow.credit = isCredit ? fineGoldVal : 0;
+                    updatedRow.debit = !isCredit ? fineGoldVal : 0;
                   }
                   
                   return updatedRow;
@@ -369,14 +374,17 @@ export const useExcelLedgerStore = create<ExcelLedgerState>()(
                   const grossNum = parseFloat(updatedRow.grossWeight as any) || 0;
                   const stoneNum = parseFloat(updatedRow.stoneWeight as any) || 0;
                   const netWeight = parseFloat((grossNum - stoneNum).toFixed(3));
-                  const addedTouchNum = parseFloat(updatedRow.added_touch as any) || 0;
-                  const touchValue = parseFloat(((netWeight * addedTouchNum) / 100).toFixed(3));
+                  const touchNum = parseFloat(updatedRow.touch as any) || 0;
+                  const fineGoldVal = parseFloat(((netWeight * touchNum) / 100).toFixed(3));
                   const isCredit = updatedRow.particular === 'Opening Balance' || updatedRow.particular === 'WT RCVD';
                   
                   updatedRow.netWeight = netWeight;
-                  updatedRow.touch_value = touchValue;
-                  updatedRow.credit = isCredit ? touchValue : 0;
-                  updatedRow.debit = !isCredit ? touchValue : 0;
+                  updatedRow.touch = touchNum;
+                  updatedRow.added_touch = touchNum;
+                  updatedRow.touch_value = fineGoldVal;
+                  updatedRow.fineGold = fineGoldVal;
+                  updatedRow.credit = isCredit ? fineGoldVal : 0;
+                  updatedRow.debit = !isCredit ? fineGoldVal : 0;
                   
                   return updatedRow;
                 }
@@ -405,12 +413,11 @@ export const useExcelLedgerStore = create<ExcelLedgerState>()(
             const stoneNum = parseFloat(row.stoneWeight as any) || 0;
             const netWeight = parseFloat((grossNum - stoneNum).toFixed(3));
             const touchNum = parseFloat(row.touch as any) || 0;
-            const addedTouchNum = parseFloat(row.added_touch as any) || 0;
-            const touchValue = parseFloat(((netWeight * addedTouchNum) / 100).toFixed(3));
+            const fineGoldVal = parseFloat(((netWeight * touchNum) / 100).toFixed(3));
             
             const isCredit = row.particular === 'Opening Balance' || row.particular === 'WT RCVD';
-            const credit = isCredit ? touchValue : 0;
-            const debit = !isCredit ? touchValue : 0;
+            const credit = isCredit ? fineGoldVal : 0;
+            const debit = !isCredit ? fineGoldVal : 0;
             
             return {
               ...row,
@@ -419,8 +426,9 @@ export const useExcelLedgerStore = create<ExcelLedgerState>()(
               stoneWeight: stoneNum,
               netWeight,
               touch: touchNum,
-              added_touch: addedTouchNum,
-              touch_value: touchValue,
+              added_touch: touchNum,
+              touch_value: fineGoldVal,
+              fineGold: fineGoldVal,
               debit,
               credit,
               balance: 0,

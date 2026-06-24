@@ -26,6 +26,7 @@ model LedgerRow {
   touch        Float    // Purity fineness % (e.g. 99.90)
   added_touch  Float    @default(0.0) // Added touch % (e.g. 92.00)
   touch_value  Float    @default(0.0) // Calculated touch: (netWeight * added_touch) / 100
+  fineGold     Float    @default(0.0) // Calculated fine gold: (netWeight * touch) / 100
   debit        Float    @default(0.0)
   credit       Float    @default(0.0)
   balance      Float    @default(0.0)

@@ -278,17 +278,17 @@ export default function LedgersPage() {
               <table className="w-full text-left text-xs border-collapse relative">
                 <thead>
                   <tr className="bg-bg-app border-b border-border-custom text-[10px] font-bold text-text-muted uppercase tracking-wider sticky top-0 z-10">
-                    <th className="p-3 pl-4">Date</th>
-                    <th className="p-3">Customer Name</th>
-                    <th className="p-3 text-right">Gross Weight (g)</th>
-                    <th className="p-3 text-right">Stone Weight (g)</th>
-                    <th className="p-3 text-right">Net Weight (g)</th>
-                    <th className="p-3 text-center">Touch (%)</th>
-                    <th className="p-3 text-right">Fine Gold (g)</th>
+                    <th className="p-3 pl-4">Customer Name</th>
+                    <th className="p-3 text-center">Touch</th>
+                    <th className="p-3 text-right">Gross Weight</th>
+                    <th className="p-3 text-right">Stone Weight</th>
+                    <th className="p-3 text-right">Net Weight</th>
+                    <th className="p-3 text-right">Fine Gold</th>
+                    <th className="p-3">Date</th>
                     <th className="p-3 text-center pr-4">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border-custom/50 font-medium text-text-main">
+                <tbody className="divide-y divide-border-custom/50 font-medium">
                   {filteredLedger.length > 0 ? (
                     filteredLedger.map((row) => {
                       const isSelected = row.id === selectedRowId;
@@ -296,45 +296,46 @@ export default function LedgersPage() {
                         <tr 
                           key={row.id}
                           onClick={() => setSelectedRowId(row.id)}
-                          className={`hover:bg-bg-app cursor-pointer transition-colors duration-150 border-l-2 ${
-                            isSelected ? 'bg-bg-app/80 border-primary-gold' : 'border-transparent'
+                          className={`hover:bg-bg-app cursor-pointer transition-colors duration-150 ${
+                            isSelected ? 'bg-bg-app/80 border-l-2 border-primary-gold' : ''
                           }`}
                         >
-                          {/* 1. Date */}
-                          <td className="p-3 pl-4 font-mono text-text-muted whitespace-nowrap">
-                            {editingCell?.rowId === row.id && editingCell?.field === 'date' ? (
+                          {/* Customer Name */}
+                          <td className="p-3 pl-4 text-text-main font-semibold">
+                            {activeAccount.name}
+                          </td>
+
+                          {/* Touch */}
+                          <td className="p-3 text-center">
+                            {editingCell?.rowId === row.id && editingCell?.field === 'touch' ? (
                               <input 
-                                type="date"
+                                type="number"
+                                step="0.01"
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={() => saveInlineEdit(row.id, 'date')}
-                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'date')}
-                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1.5 py-0.5 rounded outline-none focus:ring-0 max-w-[100px]"
+                                onBlur={() => saveInlineEdit(row.id, 'touch')}
+                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'touch')}
+                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0 max-w-[60px] text-center"
                                 autoFocus
                               />
                             ) : (
-                              <span onDoubleClick={() => startEditing(row.id, 'date', row.date)}>
-                                {new Date(row.date).toLocaleDateString()}
+                              <span onDoubleClick={() => startEditing(row.id, 'touch', row.touch)} className="font-mono text-primary-gold font-bold">
+                                {row.touch.toFixed(2)}%
                               </span>
                             )}
                           </td>
 
-                          {/* 2. Customer Name */}
-                          <td className="p-3 text-text-main font-semibold">
-                            {activeAccount.name}
-                          </td>
-
-                          {/* 3. Gross Weight */}
-                          <td className="p-3 text-right">
+                          {/* Gross Weight */}
+                          <td className="p-3 text-right text-text-muted">
                             {editingCell?.rowId === row.id && editingCell?.field === 'grossWeight' ? (
                               <input 
                                 type="number"
-                                step="any"
+                                step="0.001"
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
                                 onBlur={() => saveInlineEdit(row.id, 'grossWeight')}
                                 onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'grossWeight')}
-                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1.5 py-0.5 rounded outline-none focus:ring-0 max-w-[80px] text-right"
+                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0 max-w-[80px] text-right"
                                 autoFocus
                               />
                             ) : (
@@ -344,17 +345,17 @@ export default function LedgersPage() {
                             )}
                           </td>
 
-                          {/* 4. Stone Weight */}
+                          {/* Stone Weight */}
                           <td className="p-3 text-right text-text-muted">
                             {editingCell?.rowId === row.id && editingCell?.field === 'stoneWeight' ? (
                               <input 
                                 type="number"
-                                step="any"
+                                step="0.001"
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
                                 onBlur={() => saveInlineEdit(row.id, 'stoneWeight')}
                                 onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'stoneWeight')}
-                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1.5 py-0.5 rounded outline-none focus:ring-0 max-w-[80px] text-right"
+                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0 max-w-[80px] text-right"
                                 autoFocus
                               />
                             ) : (
@@ -364,37 +365,36 @@ export default function LedgersPage() {
                             )}
                           </td>
 
-                          {/* 5. Net Weight */}
-                          <td className="p-3 text-right font-bold">
+                          {/* Net Weight */}
+                          <td className="p-3 text-right text-text-main font-semibold">
                             {row.netWeight.toFixed(3)}
                           </td>
 
-                          {/* 6. Touch (%) */}
-                          <td className="p-3 text-center">
-                            {editingCell?.rowId === row.id && editingCell?.field === 'added_touch' ? (
+                          {/* Fine Gold */}
+                          <td className="p-3 text-right text-text-main font-semibold">
+                            {(row.fineGold ?? row.touch_value ?? 0).toFixed(3)}
+                          </td>
+
+                          {/* Date */}
+                          <td className="p-3 font-mono text-text-muted whitespace-nowrap">
+                            {editingCell?.rowId === row.id && editingCell?.field === 'date' ? (
                               <input 
-                                type="number"
-                                step="any"
+                                type="date"
                                 value={editValue}
                                 onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={() => saveInlineEdit(row.id, 'added_touch')}
-                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'added_touch')}
-                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1.5 py-0.5 rounded outline-none focus:ring-0 max-w-[60px] text-center"
+                                onBlur={() => saveInlineEdit(row.id, 'date')}
+                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'date')}
+                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0 max-w-[100px]"
                                 autoFocus
                               />
                             ) : (
-                              <span onDoubleClick={() => startEditing(row.id, 'added_touch', row.added_touch ?? 0)} className="font-mono text-primary-gold font-bold">
-                                {(row.added_touch ?? 0).toFixed(2)}%
+                              <span onDoubleClick={() => startEditing(row.id, 'date', row.date)}>
+                                {new Date(row.date).toLocaleDateString()}
                               </span>
                             )}
                           </td>
 
-                          {/* 7. Fine Gold (calculated touch value) */}
-                          <td className="p-3 text-right font-extrabold text-text-main">
-                            {(row.touch_value ?? 0).toFixed(3)}
-                          </td>
-
-                          {/* 8. Actions */}
+                          {/* Actions */}
                           <td className="p-3 text-center pr-4">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
@@ -432,7 +432,7 @@ export default function LedgersPage() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={8} className="p-8 text-center text-text-muted font-bold select-none">
+                      <td colSpan={9} className="p-8 text-center text-text-muted font-bold">
                         No ledger entries recorded.
                       </td>
                     </tr>
@@ -445,7 +445,7 @@ export default function LedgersPage() {
               <div className="p-4 border-t border-border-custom bg-sidebar-bg/50 flex justify-between items-center text-xs font-semibold">
                 <span className="text-text-muted">Total Managed: {activeAccount.ledger.length} lines</span>
                 <span className="text-text-main">
-                  Closing Fine Balance: <span className={activeAccount.currentBalance >= 0 ? 'text-text-main' : 'text-danger-custom font-bold'}>{activeAccount.currentBalance.toFixed(2)}g</span>
+                  Closing Fine Balance: <span className={activeAccount.currentBalance >= 0 ? 'text-text-main' : 'text-danger-custom font-bold'}>{activeAccount.currentBalance.toFixed(3)}g</span>
                 </span>
               </div>
             )}
@@ -520,15 +520,15 @@ export default function LedgersPage() {
                           <div className="bg-bg-app/50 border border-border-custom rounded divide-y divide-border-custom">
                             <div className="p-2.5 flex justify-between">
                               <span className="text-text-muted font-medium">Gross Weight</span>
-                              <span className="font-semibold">{activeRow.grossWeight.toFixed(2)} g</span>
+                              <span className="font-semibold">{activeRow.grossWeight.toFixed(3)} g</span>
                             </div>
                             <div className="p-2.5 flex justify-between">
                               <span className="text-text-muted font-medium">Stone deductions</span>
-                              <span className="font-semibold">{activeRow.stoneWeight.toFixed(2)} g</span>
+                              <span className="font-semibold">{activeRow.stoneWeight.toFixed(3)} g</span>
                             </div>
                             <div className="p-2.5 flex justify-between">
                               <span className="text-text-muted font-medium">Net Weight</span>
-                              <span className="font-semibold">{activeRow.netWeight.toFixed(2)} g</span>
+                              <span className="font-semibold">{activeRow.netWeight.toFixed(3)} g</span>
                             </div>
                             <div className="p-2.5 flex justify-between">
                               <span className="text-text-muted font-medium">Touch fineness</span>
@@ -552,13 +552,13 @@ export default function LedgersPage() {
                               <tbody>
                                 <tr className="border-b border-border-custom/50">
                                   <td className="p-2 font-medium text-text-main truncate max-w-[120px]">{activeAccount.name}</td>
-                                  <td className="p-2 text-right text-danger-custom font-bold">{activeRow.debit > 0 ? `${activeRow.debit.toFixed(2)}g` : '-'}</td>
-                                  <td className="p-2 text-right text-success-custom font-bold">{activeRow.credit > 0 ? `${activeRow.credit.toFixed(2)}g` : '-'}</td>
+                                  <td className="p-2 text-right text-danger-custom font-bold">{activeRow.debit > 0 ? `${activeRow.debit.toFixed(3)}g` : '-'}</td>
+                                  <td className="p-2 text-right text-success-custom font-bold">{activeRow.credit > 0 ? `${activeRow.credit.toFixed(3)}g` : '-'}</td>
                                 </tr>
                                 <tr>
                                   <td className="p-2 font-medium text-text-muted">Vault Treasury</td>
-                                  <td className="p-2 text-right text-text-muted">{activeRow.credit > 0 ? `${activeRow.credit.toFixed(2)}g` : '-'}</td>
-                                  <td className="p-2 text-right text-text-muted">{activeRow.debit > 0 ? `${activeRow.debit.toFixed(2)}g` : '-'}</td>
+                                  <td className="p-2 text-right text-text-muted">{activeRow.credit > 0 ? `${activeRow.credit.toFixed(3)}g` : '-'}</td>
+                                  <td className="p-2 text-right text-text-muted">{activeRow.debit > 0 ? `${activeRow.debit.toFixed(3)}g` : '-'}</td>
                                 </tr>
                               </tbody>
                             </table>
@@ -696,7 +696,7 @@ export default function LedgersPage() {
                   </div>
 
                   <div className="flex flex-col space-y-1">
-                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Purity %</label>
+                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Touch (%)</label>
                     <input 
                       type="number"
                       step="any"
@@ -713,17 +713,17 @@ export default function LedgersPage() {
                   const grossNum = parseFloat(formGross) || 0;
                   const stoneNum = parseFloat(formStone) || 0;
                   const netNum = grossNum - stoneNum;
-                  const addedTouchNum = parseFloat(formAddedTouch) || 0;
-                  const touchValEst = parseFloat(((netNum * addedTouchNum) / 100).toFixed(3));
+                  const touchNum = parseFloat(formAddedTouch) || 0;
+                  const fineGoldEst = parseFloat(((netNum * touchNum) / 100).toFixed(3));
                   return (
                     <div className="bg-bg-app border border-border-custom p-3 rounded flex justify-between items-center select-none font-sans">
                       <div>
                         <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Net Weight</span>
-                        <span className="text-xs font-bold text-text-main block mt-0.5">{netNum.toFixed(2)} g</span>
+                        <span className="text-xs font-bold text-text-main block mt-0.5">{netNum.toFixed(3)} g</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Calculated Touch</span>
-                        <span className="text-xs font-bold text-text-main block mt-0.5">{touchValEst.toFixed(3)} g</span>
+                        <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Fine Gold (Calculated)</span>
+                        <span className="text-xs font-bold text-text-main block mt-0.5">{fineGoldEst.toFixed(3)} g</span>
                       </div>
                     </div>
                   );
@@ -828,7 +828,7 @@ export default function LedgersPage() {
                   </div>
 
                   <div className="flex flex-col space-y-1">
-                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Purity %</label>
+                    <label className="text-[9px] font-bold text-text-muted uppercase tracking-wider">Touch (%)</label>
                     <input 
                       type="number"
                       step="any"
@@ -845,17 +845,17 @@ export default function LedgersPage() {
                   const grossNum = parseFloat(editGross) || 0;
                   const stoneNum = parseFloat(editStone) || 0;
                   const netNum = grossNum - stoneNum;
-                  const addedTouchNum = parseFloat(editAddedTouch) || 0;
-                  const touchValEst = parseFloat(((netNum * addedTouchNum) / 100).toFixed(3));
+                  const touchNum = parseFloat(editAddedTouch) || 0;
+                  const fineGoldEst = parseFloat(((netNum * touchNum) / 100).toFixed(3));
                   return (
                     <div className="bg-bg-app border border-border-custom p-3 rounded flex justify-between items-center select-none font-sans">
                       <div>
                         <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Net Weight</span>
-                        <span className="text-xs font-bold text-text-main block mt-0.5">{netNum.toFixed(2)} g</span>
+                        <span className="text-xs font-bold text-text-main block mt-0.5">{netNum.toFixed(3)} g</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Calculated Touch</span>
-                        <span className="text-xs font-bold text-text-main block mt-0.5">{touchValEst.toFixed(3)} g</span>
+                        <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Fine Gold (Calculated)</span>
+                        <span className="text-xs font-bold text-text-main block mt-0.5">{fineGoldEst.toFixed(3)} g</span>
                       </div>
                     </div>
                   );

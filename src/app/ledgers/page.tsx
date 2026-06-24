@@ -278,17 +278,17 @@ export default function LedgersPage() {
               <table className="w-full text-left text-xs border-collapse relative">
                 <thead>
                   <tr className="bg-bg-app border-b border-border-custom text-[10px] font-bold text-text-muted uppercase tracking-wider sticky top-0 z-10">
-                    <th className="p-3 pl-4">Customer Name</th>
-                    <th className="p-3 text-center">Purity</th>
-                    <th className="p-3 text-right">Gross Weight</th>
-                    <th className="p-3 text-right">Stone Weight</th>
-                    <th className="p-3 text-right">Net Weight</th>
-                    <th className="p-3 text-right">Touch</th>
-                    <th className="p-3">Date</th>
+                    <th className="p-3 pl-4">Date</th>
+                    <th className="p-3">Customer Name</th>
+                    <th className="p-3 text-right">Gross Weight (g)</th>
+                    <th className="p-3 text-right">Stone Weight (g)</th>
+                    <th className="p-3 text-right">Net Weight (g)</th>
+                    <th className="p-3 text-center">Touch (%)</th>
+                    <th className="p-3 text-right">Fine Gold (g)</th>
                     <th className="p-3 text-center pr-4">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border-custom/50 font-medium">
+                <tbody className="divide-y divide-border-custom/50 font-medium text-text-main">
                   {filteredLedger.length > 0 ? (
                     filteredLedger.map((row) => {
                       const isSelected = row.id === selectedRowId;
@@ -296,87 +296,12 @@ export default function LedgersPage() {
                         <tr 
                           key={row.id}
                           onClick={() => setSelectedRowId(row.id)}
-                          className={`hover:bg-bg-app cursor-pointer transition-colors duration-150 ${
-                            isSelected ? 'bg-bg-app/80 border-l-2 border-primary-gold' : ''
+                          className={`hover:bg-bg-app cursor-pointer transition-colors duration-150 border-l-2 ${
+                            isSelected ? 'bg-bg-app/80 border-primary-gold' : 'border-transparent'
                           }`}
                         >
-                          {/* Customer Name */}
-                          <td className="p-3 pl-4 text-text-main font-semibold">
-                            {activeAccount.name}
-                          </td>
-
-                          {/* Purity */}
-                          <td className="p-3 text-center">
-                            {editingCell?.rowId === row.id && editingCell?.field === 'added_touch' ? (
-                              <input 
-                                type="number"
-                                step="0.01"
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={() => saveInlineEdit(row.id, 'added_touch')}
-                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'added_touch')}
-                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0 max-w-[60px] text-center"
-                                autoFocus
-                              />
-                            ) : (
-                              <span onDoubleClick={() => startEditing(row.id, 'added_touch', row.added_touch ?? 0)} className="font-mono text-primary-gold font-bold">
-                                {(row.added_touch ?? 0).toFixed(2)}%
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Gross Weight */}
-                          <td className="p-3 text-right text-text-muted">
-                            {editingCell?.rowId === row.id && editingCell?.field === 'grossWeight' ? (
-                              <input 
-                                type="number"
-                                step="0.01"
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={() => saveInlineEdit(row.id, 'grossWeight')}
-                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'grossWeight')}
-                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0 max-w-[80px] text-right"
-                                autoFocus
-                              />
-                            ) : (
-                              <span onDoubleClick={() => startEditing(row.id, 'grossWeight', row.grossWeight)}>
-                                {row.grossWeight.toFixed(2)}
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Stone Weight */}
-                          <td className="p-3 text-right text-text-muted">
-                            {editingCell?.rowId === row.id && editingCell?.field === 'stoneWeight' ? (
-                              <input 
-                                type="number"
-                                step="0.01"
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={() => saveInlineEdit(row.id, 'stoneWeight')}
-                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'stoneWeight')}
-                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0 max-w-[80px] text-right"
-                                autoFocus
-                              />
-                            ) : (
-                              <span onDoubleClick={() => startEditing(row.id, 'stoneWeight', row.stoneWeight)}>
-                                {row.stoneWeight.toFixed(2)}
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Net Weight */}
-                          <td className="p-3 text-right text-text-main font-semibold">
-                            {row.netWeight.toFixed(2)}
-                          </td>
-
-                          {/* Touch (Calculated Value) */}
-                          <td className="p-3 text-right text-text-main font-semibold">
-                            {(row.touch_value ?? 0).toFixed(3)}
-                          </td>
-
-                          {/* Date */}
-                          <td className="p-3 font-mono text-text-muted whitespace-nowrap">
+                          {/* 1. Date */}
+                          <td className="p-3 pl-4 font-mono text-text-muted whitespace-nowrap">
                             {editingCell?.rowId === row.id && editingCell?.field === 'date' ? (
                               <input 
                                 type="date"
@@ -384,7 +309,7 @@ export default function LedgersPage() {
                                 onChange={(e) => setEditValue(e.target.value)}
                                 onBlur={() => saveInlineEdit(row.id, 'date')}
                                 onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'date')}
-                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1 py-0.5 rounded outline-none focus:ring-0 max-w-[100px]"
+                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1.5 py-0.5 rounded outline-none focus:ring-0 max-w-[100px]"
                                 autoFocus
                               />
                             ) : (
@@ -394,7 +319,82 @@ export default function LedgersPage() {
                             )}
                           </td>
 
-                          {/* Actions */}
+                          {/* 2. Customer Name */}
+                          <td className="p-3 text-text-main font-semibold">
+                            {activeAccount.name}
+                          </td>
+
+                          {/* 3. Gross Weight */}
+                          <td className="p-3 text-right">
+                            {editingCell?.rowId === row.id && editingCell?.field === 'grossWeight' ? (
+                              <input 
+                                type="number"
+                                step="any"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onBlur={() => saveInlineEdit(row.id, 'grossWeight')}
+                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'grossWeight')}
+                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1.5 py-0.5 rounded outline-none focus:ring-0 max-w-[80px] text-right"
+                                autoFocus
+                              />
+                            ) : (
+                              <span onDoubleClick={() => startEditing(row.id, 'grossWeight', row.grossWeight)}>
+                                {row.grossWeight.toFixed(3)}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* 4. Stone Weight */}
+                          <td className="p-3 text-right text-text-muted">
+                            {editingCell?.rowId === row.id && editingCell?.field === 'stoneWeight' ? (
+                              <input 
+                                type="number"
+                                step="any"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onBlur={() => saveInlineEdit(row.id, 'stoneWeight')}
+                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'stoneWeight')}
+                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1.5 py-0.5 rounded outline-none focus:ring-0 max-w-[80px] text-right"
+                                autoFocus
+                              />
+                            ) : (
+                              <span onDoubleClick={() => startEditing(row.id, 'stoneWeight', row.stoneWeight)}>
+                                {row.stoneWeight.toFixed(3)}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* 5. Net Weight */}
+                          <td className="p-3 text-right font-bold">
+                            {row.netWeight.toFixed(3)}
+                          </td>
+
+                          {/* 6. Touch (%) */}
+                          <td className="p-3 text-center">
+                            {editingCell?.rowId === row.id && editingCell?.field === 'added_touch' ? (
+                              <input 
+                                type="number"
+                                step="any"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onBlur={() => saveInlineEdit(row.id, 'added_touch')}
+                                onKeyDown={(e) => e.key === 'Enter' && saveInlineEdit(row.id, 'added_touch')}
+                                className="bg-sidebar-bg border border-primary-gold text-[11px] px-1.5 py-0.5 rounded outline-none focus:ring-0 max-w-[60px] text-center"
+                                autoFocus
+                              />
+                            ) : (
+                              <span onDoubleClick={() => startEditing(row.id, 'added_touch', row.added_touch ?? 0)} className="font-mono text-primary-gold font-bold">
+                                {(row.added_touch ?? 0).toFixed(2)}%
+                              </span>
+                            )}
+                          </td>
+
+                          {/* 7. Fine Gold (calculated touch value) */}
+                          <td className="p-3 text-right font-extrabold text-text-main">
+                            {(row.touch_value ?? 0).toFixed(3)}
+                          </td>
+
+                          {/* 8. Actions */}
                           <td className="p-3 text-center pr-4">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
@@ -432,7 +432,7 @@ export default function LedgersPage() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={9} className="p-8 text-center text-text-muted font-bold">
+                      <td colSpan={8} className="p-8 text-center text-text-muted font-bold select-none">
                         No ledger entries recorded.
                       </td>
                     </tr>

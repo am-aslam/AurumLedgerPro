@@ -410,9 +410,9 @@ export default function TransactionsPage() {
               }}
               className="bg-transparent text-xs font-semibold text-text-main focus:outline-none cursor-pointer pr-4"
             >
-              <option value="All">All Clients (Consolidated)</option>
+              <option value="All" className="bg-sidebar-bg text-text-main">All Clients (Consolidated)</option>
               {accounts.map(acc => (
-                <option key={acc.id} value={acc.id}>{acc.name}</option>
+                <option key={acc.id} value={acc.id} className="bg-sidebar-bg text-text-main">{acc.name}</option>
               ))}
             </select>
           </div>

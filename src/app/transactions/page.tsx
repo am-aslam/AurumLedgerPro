@@ -1,18 +1,23 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import AppLayout from '@/components/AppLayout';
 import { useExcelLedgerStore, LedgerRow } from '@/store/useExcelLedgerStore';
+import { useLedgerStore } from '@/store/useLedgerStore';
 import { 
   Trash2, 
+  Edit3, 
   CheckCircle, 
-  Info,
   Calendar,
   Layers,
-  Scale,
   Sparkles,
-  ChevronDown
+  Info,
+  Search,
+  ArrowRight,
+  Plus,
+  RefreshCw,
+  X
 } from 'lucide-react';
 
 interface GridRow {
@@ -34,22 +39,35 @@ export default function TransactionsPage() {
     accounts, 
     addLedgerRow, 
     deleteLedgerRow, 
-    updateLedgerRow 
+    updateLedgerRow,
+    currentUser
   } = useExcelLedgerStore();
+
+  const { addAuditLog } = useLedgerStore();
   
   const [mounted, setMounted] = useState(false);
   const [gridRows, setGridRows] = useState<GridRow[]>([]);
-  const [activeRowId, setActiveRowId] = useState<string | null>(null);
-  const [focusedRowOriginal, setFocusedRowOriginal] = useState<string | null>(null);
-  const [selectedClientFilter, setSelectedClientFilter] = useState<string>('All');
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   
-  // Custom Toast Notification States
+  // Custom Autocomplete Searchable Dropdown States
+  const [clientSearch, setClientSearch] = useState('');
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [highlightedClientIdx, setHighlightedClientIdx] = useState(0);
+  
+  // Modal Popups States
+  const [showEditPopup, setShowEditPopup] = useState(false);
+  const [editPopupRow, setEditPopupRow] = useState<GridRow | null>(null);
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [deletePopupRow, setDeletePopupRow] = useState<GridRow | null>(null);
+
+  // Success message alert
   const [successMsg, setSuccessMsg] = useState('');
 
-  // New Row local state
-  const [newRowData, setNewRowData] = useState({
-    accountId: '',
+  // Section 1 - Form Entry Console state
+  const [formData, setFormData] = useState({
+    id: '',
     date: new Date().toISOString().split('T')[0],
+    accountId: '',
     particular: 'WT RCVD' as LedgerRow['particular'],
     grossWeight: '',
     stoneWeight: '0',
@@ -57,19 +75,19 @@ export default function TransactionsPage() {
     notes: ''
   });
 
-  // Client mounting check
+  // Load clients and initialize data once mounted
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Set default client account ID for the new row once accounts are loaded
   useEffect(() => {
-    if (accounts.length > 0 && !newRowData.accountId) {
-      setNewRowData(prev => ({ ...prev, accountId: accounts[0].id }));
+    if (accounts.length > 0 && !formData.accountId) {
+      setFormData(prev => ({ ...prev, accountId: accounts[0].id }));
+      setClientSearch(accounts[0].name);
     }
-  }, [accounts, newRowData.accountId]);
+  }, [accounts, formData.accountId]);
 
-  // Synchronize gridRows state with store accounts data
+  // Synchronize store data with grid list
   useEffect(() => {
     const allRows: GridRow[] = accounts.flatMap(acc => 
       acc.ledger.map(row => ({
@@ -84,64 +102,56 @@ export default function TransactionsPage() {
         purity: row.touch_value ?? 0,
         notes: row.notes || ''
       }))
-    ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // descending (newest on top)
     
     setGridRows(allRows);
   }, [accounts]);
 
-  // Filtered rows matching the selected client filter
-  const filteredRows = useMemo(() => {
-    if (selectedClientFilter === 'All') return gridRows;
-    return gridRows.filter(row => row.accountId === selectedClientFilter);
-  }, [gridRows, selectedClientFilter]);
+  // Autocomplete Filter
+  const filteredClients = useMemo(() => {
+    return accounts.filter(acc => 
+      acc.name.toLowerCase().includes(clientSearch.toLowerCase())
+    );
+  }, [accounts, clientSearch]);
 
-  // Totals calculations
+  // Summaries
   const totals = useMemo(() => {
     let totalGross = 0;
     let totalStone = 0;
     let totalNet = 0;
-    let totalPurity = 0;
+    let totalFine = 0;
 
-    filteredRows.forEach(row => {
+    gridRows.forEach(row => {
       totalGross += row.grossWeight;
       totalStone += row.stoneWeight;
       totalNet += row.netWeight;
-      totalPurity += row.purity;
+      totalFine += row.purity;
     });
 
     return {
       gross: totalGross.toFixed(2),
       stone: totalStone.toFixed(2),
       net: totalNet.toFixed(2),
-      purity: totalPurity.toFixed(3)
+      fine: totalFine.toFixed(3)
     };
-  }, [filteredRows]);
+  }, [gridRows]);
 
-  // Fallback screen if there are no registered client accounts
-  if (mounted && accounts.length === 0) {
-    return (
-      <AppLayout>
-        <div className="flex flex-col items-center justify-center p-12 bg-card-bg border border-border-custom rounded-md text-center max-w-lg mx-auto my-12 shadow-sm font-sans select-none animate-in fade-in duration-200">
-          <Layers className="w-12 h-12 text-text-muted mb-4" />
-          <h2 className="text-sm font-bold text-text-main">No Client Accounts Found</h2>
-          <p className="text-xs text-text-muted mt-2 max-w-xs leading-relaxed">
-            There are currently no clients registered in the vault database. 
-            Please navigate to the Balance Sheet to add a client account manually before posting transactions.
-          </p>
-          <button 
-            onClick={() => router.push('/balances')}
-            className="mt-6 px-4 py-2 bg-primary-gold hover:opacity-90 text-white font-bold text-xs rounded shadow-xs transition-opacity cursor-pointer"
-          >
-            Go to Balances Sheet
-          </button>
-        </div>
-      </AppLayout>
-    );
-  }
+  // Active client object
+  const activeClientName = useMemo(() => {
+    const client = accounts.find(c => c.id === formData.accountId);
+    return client ? client.name : '';
+  }, [accounts, formData.accountId]);
 
-  // Focus a specific cell by ID
-  const focusCell = (rowIndex: number, colIndex: number) => {
-    const el = document.getElementById(`cell-${rowIndex}-${colIndex}`);
+  // Net weight & Fine Gold live calculation
+  const grossNum = parseFloat(formData.grossWeight) || 0;
+  const stoneNum = parseFloat(formData.stoneWeight) || 0;
+  const netWeight = parseFloat((grossNum - stoneNum).toFixed(3));
+  const touchNum = parseFloat(formData.touch) || 0;
+  const fineGold = parseFloat(((netWeight * touchNum) / 100).toFixed(3));
+
+  // Focus utility
+  const focusField = (id: string) => {
+    const el = document.getElementById(id);
     if (el) {
       el.focus();
       if (el.tagName === 'INPUT' && (el as HTMLInputElement).type !== 'date') {
@@ -150,231 +160,268 @@ export default function TransactionsPage() {
     }
   };
 
-  // Focus tracking to prevent unnecessary store updates
-  const handleFocus = (row: GridRow) => {
-    setFocusedRowOriginal(JSON.stringify(row));
-    setActiveRowId(row.id);
-  };
-
-  const handleFocusNewRow = () => {
-    setActiveRowId('new-row');
-  };
-
-  // Local grid updates
-  const handleCellChange = (rowIndex: number, field: keyof GridRow, val: any) => {
-    const updated = [...gridRows];
-    const row = { ...updated[rowIndex], [field]: val };
-    
-    // Auto-calculate Net Weight and Purity instantly
-    if (field === 'grossWeight' || field === 'stoneWeight' || field === 'touch') {
-      const gross = parseFloat(row.grossWeight as any) || 0;
-      const stone = parseFloat(row.stoneWeight as any) || 0;
-      const net = parseFloat((gross - stone).toFixed(3));
-      const touchVal = parseFloat(row.touch as any) || 0;
-      const purityVal = parseFloat(((net * touchVal) / 100).toFixed(3));
-      
-      row.netWeight = net;
-      row.purity = purityVal;
-    }
-    
-    updated[rowIndex] = row;
-    setGridRows(updated);
-  };
-
-  // Save row updates on cell blur
-  const handleBlur = (rowIndex: number) => {
-    const row = gridRows[rowIndex];
-    if (!row) return;
-    const currentStr = JSON.stringify(row);
-    if (currentStr !== focusedRowOriginal) {
-      saveRowToStore(row);
-    }
-  };
-
-  // Call store method to persist state
-  const saveRowToStore = async (row: GridRow) => {
-    const originalAccount = accounts.find(acc => acc.ledger.some(r => r.id === row.id));
-    if (!originalAccount) return;
-
-    if (row.accountId !== originalAccount.id) {
-      // Client Name changed! Move row to the new account
-      await deleteLedgerRow(originalAccount.id, row.id);
-      await addLedgerRow(row.accountId, {
-        date: row.date,
-        particular: row.particular,
-        grossWeight: row.grossWeight,
-        stoneWeight: row.stoneWeight,
-        touch: row.touch,
-        added_touch: row.touch,
-        debit: 0,
-        credit: 0,
-        notes: row.notes,
-        attachments: []
-      });
-    } else {
-      // Standard update
-      await updateLedgerRow(row.accountId, row.id, {
-        date: row.date,
-        particular: row.particular,
-        grossWeight: row.grossWeight,
-        stoneWeight: row.stoneWeight,
-        touch: row.touch,
-        added_touch: row.touch,
-        notes: row.notes
-      });
-    }
-  };
-
-  // Keyboard navigation logic
-  const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
-    rowIndex: number,
-    colIndex: number,
-    isNewRow: boolean
-  ) => {
-    const totalRows = gridRows.length;
-
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (rowIndex > 0) {
-        focusCell(rowIndex - 1, colIndex);
-      }
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (rowIndex < totalRows) { // includes new row at index totalRows
-        focusCell(rowIndex + 1, colIndex);
-      }
-    } else if (e.key === 'ArrowLeft') {
-      const target = e.currentTarget;
-      const isStart = target.tagName === 'SELECT' || (target as HTMLInputElement).selectionStart === 0;
-      if (isStart && colIndex > 0) {
-        e.preventDefault();
-        // Skip read-only fields or handle directly
-        const prevCol = colIndex - 1 === 7 ? 6 : (colIndex - 1 === 5 ? 4 : colIndex - 1);
-        focusCell(rowIndex, prevCol);
-      }
-    } else if (e.key === 'ArrowRight') {
-      const target = e.currentTarget;
-      const isEnd = target.tagName === 'SELECT' || 
-                    (target as HTMLInputElement).selectionStart === (target as HTMLInputElement).value.length;
-      if (isEnd && colIndex < 8) {
-        e.preventDefault();
-        const nextCol = colIndex + 1 === 5 ? 6 : (colIndex + 1 === 7 ? 8 : colIndex + 1);
-        focusCell(rowIndex, nextCol);
-      }
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (isNewRow) {
-        if (colIndex === 6 || colIndex === 8) { // touch or notes
-          handleCreateNewRowFromGrid();
-        } else {
-          // Tab through editables
-          const nextCols: Record<number, number> = { 0: 1, 1: 2, 2: 3, 3: 4, 4: 6, 6: 8 };
-          const targetCol = nextCols[colIndex];
-          if (targetCol !== undefined) focusCell(rowIndex, targetCol);
-        }
-      } else {
-        if (rowIndex < totalRows - 1) {
-          focusCell(rowIndex + 1, colIndex);
-        } else {
-          focusCell(totalRows, colIndex);
-        }
-      }
-    } else if (e.key === 'Tab') {
-      if (e.shiftKey) {
-        // Shift+Tab
-        if (colIndex === 6) { // Skip Net Wt (5)
-          e.preventDefault();
-          focusCell(rowIndex, 4);
-        } else if (colIndex === 8) { // Skip Purity (7)
-          e.preventDefault();
-          focusCell(rowIndex, 6);
-        } else if (colIndex === 0 && rowIndex > 0) {
-          e.preventDefault();
-          focusCell(rowIndex - 1, 8); // focus Notes of previous row
-        }
-      } else {
-        // Tab
-        if (colIndex === 4) { // Skip Net Wt (5)
-          e.preventDefault();
-          focusCell(rowIndex, 6);
-        } else if (colIndex === 6) { // Skip Purity (7)
-          e.preventDefault();
-          focusCell(rowIndex, 8);
-        } else if (colIndex === 8) {
-          if (!isNewRow) {
-            e.preventDefault();
-            if (rowIndex < totalRows - 1) {
-              focusCell(rowIndex + 1, 0);
-            } else {
-              focusCell(totalRows, 0);
-            }
-          }
-        }
-      }
-    }
-  };
-
-  // Add new row entry
-  const handleCreateNewRowFromGrid = () => {
-    const activeAccountId = selectedClientFilter === 'All' 
-      ? (newRowData.accountId || accounts[0]?.id)
-      : selectedClientFilter;
-
-    if (!activeAccountId) return;
-    const gross = parseFloat(newRowData.grossWeight) || 0;
-    if (gross <= 0) {
-      alert('Please enter a valid Gross Weight.');
-      focusCell(gridRows.length, 3);
-      return;
-    }
-
-    const stone = parseFloat(newRowData.stoneWeight) || 0;
-    const touch = parseFloat(newRowData.touch) || 0;
-
-    addLedgerRow(activeAccountId, {
-      date: newRowData.date,
-      particular: newRowData.particular,
-      grossWeight: gross,
-      stoneWeight: stone,
-      touch: touch,
-      added_touch: touch,
-      debit: 0,
-      credit: 0,
-      notes: newRowData.notes || 'Logged via Jewellery Ledger Redesign',
-      attachments: []
-    });
-
-    // Reset entry state
-    setNewRowData(prev => ({
-      ...prev,
+  // Clear Form Console
+  const handleClearForm = useCallback(() => {
+    setFormData({
+      id: '',
+      date: new Date().toISOString().split('T')[0],
+      accountId: accounts[0]?.id || '',
+      particular: 'WT RCVD',
       grossWeight: '',
       stoneWeight: '0',
       touch: '99.90',
       notes: ''
-    }));
+    });
+    setClientSearch(accounts[0] ? accounts[0].name : '');
+    setShowClientDropdown(false);
+    focusField('client-input');
+  }, [accounts]);
 
-    setSuccessMsg('Ledger row successfully saved to database!');
-    setTimeout(() => setSuccessMsg(''), 3000);
+  // Keyboard sequential focus shifting
+  const handleFieldKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>, fieldName: string) => {
+    if (fieldName === 'client' && showClientDropdown) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedClientIdx(prev => Math.min(prev + 1, filteredClients.length - 1));
+        return;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightedClientIdx(prev => Math.max(prev - 1, 0));
+        return;
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const client = filteredClients[highlightedClientIdx];
+        if (client) {
+          setFormData(prev => ({ ...prev, accountId: client.id }));
+          setClientSearch(client.name);
+          setShowClientDropdown(false);
+          focusField('type-select');
+        }
+        return;
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowClientDropdown(false);
+        return;
+      }
+    }
 
-    // Keep focus in the entry row
-    setTimeout(() => {
-      focusCell(gridRows.length, 3); // focus Gross Wt of new row
-    }, 60);
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (fieldName === 'notes') {
+        handleSave();
+      } else {
+        const sequentialFields: Record<string, string> = {
+          date: 'client-input',
+          client: 'type-select',
+          type: 'gross-input',
+          gross: 'stone-input',
+          stone: 'touch-input',
+          touch: 'notes-input'
+        };
+        const nextField = sequentialFields[fieldName];
+        if (nextField) {
+          focusField(nextField);
+        }
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleClearForm();
+    }
   };
 
-  // Calculations for New Row
-  const newGrossNum = parseFloat(newRowData.grossWeight) || 0;
-  const newStoneNum = parseFloat(newRowData.stoneWeight) || 0;
-  const newNetWeight = newGrossNum - newStoneNum;
-  const newTouchNum = parseFloat(newRowData.touch) || 0;
-  const newPurityVal = (newNetWeight * newTouchNum) / 100;
+  // Save Transaction Entry Row (Add / Update)
+  const handleSave = async () => {
+    const gross = parseFloat(formData.grossWeight) || 0;
+    const stone = parseFloat(formData.stoneWeight) || 0;
+    const touch = parseFloat(formData.touch) || 0;
+
+    if (!formData.accountId) {
+      alert('Please select a valid Client Name.');
+      focusField('client-input');
+      return;
+    }
+    if (gross <= 0) {
+      alert('Please enter a valid Gross Weight.');
+      focusField('gross-input');
+      return;
+    }
+
+    if (formData.id) {
+      // Editing an existing transaction
+      const originalAccount = accounts.find(acc => acc.ledger.some(r => r.id === formData.id));
+      if (originalAccount) {
+        if (formData.accountId !== originalAccount.id) {
+          // Client Name changed! Move row to the new account
+          await deleteLedgerRow(originalAccount.id, formData.id);
+          await addLedgerRow(formData.accountId, {
+            date: formData.date,
+            particular: formData.particular,
+            grossWeight: gross,
+            stoneWeight: stone,
+            touch: touch,
+            added_touch: touch,
+            debit: 0,
+            credit: 0,
+            notes: formData.notes,
+            attachments: []
+          });
+        } else {
+          // Standard update
+          await updateLedgerRow(formData.accountId, formData.id, {
+            date: formData.date,
+            particular: formData.particular,
+            grossWeight: gross,
+            stoneWeight: stone,
+            touch: touch,
+            added_touch: touch,
+            notes: formData.notes
+          });
+        }
+        setSuccessMsg('Ledger row updated successfully!');
+      }
+    } else {
+      // Creating a new transaction
+      await addLedgerRow(formData.accountId, {
+        date: formData.date,
+        particular: formData.particular,
+        grossWeight: gross,
+        stoneWeight: stone,
+        touch: touch,
+        added_touch: touch,
+        debit: 0,
+        credit: 0,
+        notes: formData.notes,
+        attachments: []
+      });
+      setSuccessMsg('Ledger row added successfully!');
+    }
+
+    handleClearForm();
+    setTimeout(() => setSuccessMsg(''), 3000);
+  };
+
+  // Modals confirmation handlers
+  const handleConfirmEdit = () => {
+    if (!editPopupRow) return;
+    
+    setFormData({
+      id: editPopupRow.id,
+      date: editPopupRow.date,
+      accountId: editPopupRow.accountId,
+      particular: editPopupRow.particular,
+      grossWeight: String(editPopupRow.grossWeight),
+      stoneWeight: String(editPopupRow.stoneWeight),
+      touch: String(editPopupRow.touch),
+      notes: editPopupRow.notes
+    });
+    
+    const clientObj = accounts.find(acc => acc.id === editPopupRow.accountId);
+    setClientSearch(clientObj ? clientObj.name : '');
+    
+    setShowEditPopup(false);
+    
+    // Focus Gross Wt input immediately
+    setTimeout(() => {
+      focusField('gross-input');
+    }, 80);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletePopupRow) return;
+
+    const dateStr = new Date().toLocaleDateString();
+    const timeStr = new Date().toLocaleTimeString();
+    const auditDetails = `User Name: ${currentUser.name} | Action Type: DELETION | Transaction ID: ${deletePopupRow.id} | Deleted Record ID: ${deletePopupRow.id} | Date: ${dateStr} | Time: ${timeStr}`;
+    
+    // Log audit trail
+    addAuditLog(currentUser.name, 'Delete Transaction', auditDetails);
+    
+    // Delete transaction from database
+    await deleteLedgerRow(deletePopupRow.accountId, deletePopupRow.id);
+    
+    setShowDeletePopup(false);
+    setDeletePopupRow(null);
+    setSelectedRowId(null);
+    
+    setSuccessMsg('Ledger row deleted successfully and recorded in audit log!');
+    setTimeout(() => setSuccessMsg(''), 3000);
+  };
+
+  // Keyboard navigation window listener
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isTyping = activeEl && (
+        activeEl.tagName === 'INPUT' || 
+        activeEl.tagName === 'SELECT' || 
+        activeEl.tagName === 'TEXTAREA'
+      );
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleClearForm();
+        return;
+      }
+
+      if (isTyping && !e.ctrlKey) {
+        return; 
+      }
+
+      // Ctrl + E: Edit selected
+      if (e.ctrlKey && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        if (selectedRowId) {
+          const row = gridRows.find(r => r.id === selectedRowId);
+          if (row) {
+            setEditPopupRow(row);
+            setShowEditPopup(true);
+          }
+        }
+        return;
+      }
+
+      // Ctrl + Delete: Delete selected
+      if (e.ctrlKey && e.key === 'Delete') {
+        e.preventDefault();
+        if (selectedRowId) {
+          const row = gridRows.find(r => r.id === selectedRowId);
+          if (row) {
+            setDeletePopupRow(row);
+            setShowDeletePopup(true);
+          }
+        }
+        return;
+      }
+
+      // Table row arrows selection
+      if (!isTyping) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const currentIdx = gridRows.findIndex(r => r.id === selectedRowId);
+          if (currentIdx < gridRows.length - 1) {
+            setSelectedRowId(gridRows[currentIdx + 1].id);
+          } else if (gridRows.length > 0 && selectedRowId === null) {
+            setSelectedRowId(gridRows[0].id);
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const currentIdx = gridRows.findIndex(r => r.id === selectedRowId);
+          if (currentIdx > 0) {
+            setSelectedRowId(gridRows[currentIdx - 1].id);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [selectedRowId, gridRows, handleClearForm]);
 
   if (!mounted) {
     return (
       <AppLayout>
         <div className="min-h-screen flex bg-bg-app items-center justify-center">
-          <div className="text-text-muted text-xs font-semibold animate-pulse">Loading Ledger Grid...</div>
+          <div className="text-text-muted text-xs font-semibold animate-pulse">Loading Ledger Screen...</div>
         </div>
       </AppLayout>
     );
@@ -382,270 +429,368 @@ export default function TransactionsPage() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 max-w-7xl mx-auto flex flex-col h-[calc(100vh-100px)]">
+      <div className="bg-[#F8F9FA] text-[#111827] border border-[#D9D9D9] rounded p-5 space-y-6 shadow-xs min-h-[calc(100vh-100px)] font-sans">
         
         {/* Title Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 select-none">
+        <div className="flex justify-between items-center select-none border-b border-[#D9D9D9] pb-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-text-main flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary-gold" />
-              Voucher Transactions Ledger
+            <h1 className="text-base font-bold tracking-tight text-[#111827] flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+              AurumPro Ledger — Voucher Transactions
             </h1>
-            <p className="text-xs text-text-muted mt-1">
-              Jewellery-style general ledger interface. Arrow key navigation, auto-calculating purity weights, and instant client-side persistence.
+            <p className="text-[10px] text-gray-500 mt-0.5">
+              Traditional jewellery accounting ledger system. High-density display console, searchable autocomplete client fields, and real-time summaries.
             </p>
           </div>
-
-          {/* Client Filter Dropdown */}
-          <div className="flex items-center space-x-3 bg-card-bg border border-border-custom px-3 py-1.5 rounded-md shadow-xs">
-            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1">
-              <ChevronDown className="w-3.5 h-3.5" />
-              Client Sheet:
-            </span>
-            <select
-              value={selectedClientFilter}
-              onChange={(e) => {
-                setSelectedClientFilter(e.target.value);
-                setActiveRowId(null);
-              }}
-              className="bg-transparent text-xs font-semibold text-text-main focus:outline-none cursor-pointer pr-4"
-            >
-              <option value="All" className="bg-sidebar-bg text-text-main">All Clients (Consolidated)</option>
-              {accounts.map(acc => (
-                <option key={acc.id} value={acc.id} className="bg-sidebar-bg text-text-main">{acc.name}</option>
-              ))}
-            </select>
+          <div className="flex items-center space-x-1.5 text-[10px] text-[#10B981] bg-[#10B981]/10 border border-[#10B981]/20 px-2 py-0.5 rounded font-bold">
+            <CheckCircle className="w-3.5 h-3.5" />
+            <span>Accounting Node Online</span>
           </div>
         </div>
 
-        {/* Success Alert Toast */}
+        {/* Section 1 — Transaction Entry Row */}
+        <div className="bg-white border border-[#D9D9D9] rounded p-3 shadow-xs">
+          <div className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-2 select-none flex justify-between">
+            <span>Transaction Entry Row Console</span>
+            <span className="text-gray-400 font-medium">ESC to clear form</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+            
+            {/* 1. Date */}
+            <div className="flex flex-col space-y-1 md:col-span-1">
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Date</label>
+              <input
+                id="date-input"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                onKeyDown={(e) => handleFieldKeyDown(e, 'date')}
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-1 text-xs text-[#111827] font-mono h-7"
+              />
+            </div>
+
+            {/* 2. Client Name Searchable Dropdown */}
+            <div className="flex flex-col space-y-1 relative md:col-span-2">
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Client Name</label>
+              <input
+                id="client-input"
+                type="text"
+                placeholder="Search client..."
+                value={clientSearch}
+                onChange={(e) => {
+                  setClientSearch(e.target.value);
+                  setShowClientDropdown(true);
+                  setHighlightedClientIdx(0);
+                }}
+                onFocus={() => setShowClientDropdown(true)}
+                onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
+                onKeyDown={(e) => handleFieldKeyDown(e, 'client')}
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-1 text-xs text-[#111827] font-bold h-7"
+              />
+              
+              {showClientDropdown && filteredClients.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#D9D9D9] rounded shadow-lg max-h-40 overflow-y-auto z-50">
+                  {filteredClients.map((client, idx) => {
+                    const isHighlighted = idx === highlightedClientIdx;
+                    return (
+                      <div
+                        key={client.id}
+                        onMouseDown={() => {
+                          setFormData(prev => ({ ...prev, accountId: client.id }));
+                          setClientSearch(client.name);
+                          setShowClientDropdown(false);
+                          focusField('type-select');
+                        }}
+                        className={`px-3 py-1.5 text-xs font-semibold cursor-pointer border-b border-[#F0F0F0] last:border-b-0 ${
+                          isHighlighted ? 'bg-[#D4AF37] text-white' : 'text-[#111827] hover:bg-gray-100'
+                        }`}
+                      >
+                        {client.name}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 3. Type select */}
+            <div className="flex flex-col space-y-1 md:col-span-1">
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Type</label>
+              <select
+                id="type-select"
+                value={formData.particular}
+                onChange={(e) => setFormData(prev => ({ ...prev, particular: e.target.value as LedgerRow['particular'] }))}
+                onKeyDown={(e) => handleFieldKeyDown(e, 'type')}
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-0.5 text-xs text-[#111827] font-semibold h-7 appearance-none cursor-pointer"
+              >
+                <option value="WT RCVD">WT RCVD</option>
+                <option value="Sale">Sale</option>
+                <option value="Adjustment">Adjustment</option>
+                <option value="Opening Balance">Opening Bal</option>
+              </select>
+            </div>
+
+            {/* 4. Gross Weight */}
+            <div className="flex flex-col space-y-1 md:col-span-1">
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Gross Weight</label>
+              <input
+                id="gross-input"
+                type="number"
+                step="any"
+                placeholder="0.00"
+                value={formData.grossWeight}
+                onChange={(e) => setFormData(prev => ({ ...prev, grossWeight: e.target.value }))}
+                onKeyDown={(e) => handleFieldKeyDown(e, 'gross')}
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-1 text-xs text-[#111827] font-bold text-right h-7"
+              />
+            </div>
+
+            {/* 5. Stone Weight */}
+            <div className="flex flex-col space-y-1 md:col-span-1">
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Stone Weight</label>
+              <input
+                id="stone-input"
+                type="number"
+                step="any"
+                placeholder="0.00"
+                value={formData.stoneWeight}
+                onChange={(e) => setFormData(prev => ({ ...prev, stoneWeight: e.target.value }))}
+                onKeyDown={(e) => handleFieldKeyDown(e, 'stone')}
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-1 text-xs text-gray-500 text-right h-7"
+              />
+            </div>
+
+            {/* 6. Net Weight (Read-only) */}
+            <div className="flex flex-col space-y-1 md:col-span-1">
+              <label className="text-[8px] font-bold text-gray-500 uppercase bg-gray-100 px-1 py-0.5 rounded leading-none text-center">Net Wt</label>
+              <input
+                id="net-input"
+                type="number"
+                value={netWeight.toFixed(2)}
+                readOnly
+                className="w-full bg-[#F3F4F6] border border-[#D9D9D9] outline-none rounded px-2 py-1 text-xs text-gray-700 font-bold text-right cursor-not-allowed h-7"
+              />
+            </div>
+
+            {/* 7. Touch */}
+            <div className="flex flex-col space-y-1 md:col-span-1">
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Touch (%)</label>
+              <input
+                id="touch-input"
+                type="number"
+                step="any"
+                placeholder="99.90"
+                value={formData.touch}
+                onChange={(e) => setFormData(prev => ({ ...prev, touch: e.target.value }))}
+                onKeyDown={(e) => handleFieldKeyDown(e, 'touch')}
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-1 text-xs text-[#D4AF37] font-bold text-center h-7"
+              />
+            </div>
+
+            {/* 8. Fine Gold (Read-only) */}
+            <div className="flex flex-col space-y-1 md:col-span-1">
+              <label className="text-[8px] font-bold text-gray-500 uppercase bg-gray-100 px-1 py-0.5 rounded leading-none text-center">Fine Gold</label>
+              <input
+                id="fine-input"
+                type="number"
+                value={fineGold.toFixed(3)}
+                readOnly
+                className="w-full bg-[#F3F4F6] border border-[#D9D9D9] outline-none rounded px-2 py-1 text-xs text-gray-700 font-bold text-right cursor-not-allowed h-7"
+              />
+            </div>
+
+            {/* 9. Notes */}
+            <div className="flex flex-col space-y-1 md:col-span-2">
+              <label className="text-[8px] font-bold text-gray-500 uppercase">Notes</label>
+              <input
+                id="notes-input"
+                type="text"
+                placeholder="Voucher notes memo..."
+                value={formData.notes}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                onKeyDown={(e) => handleFieldKeyDown(e, 'notes')}
+                className="w-full bg-white border border-[#D9D9D9] focus:border-[#D4AF37] outline-none rounded px-2 py-1 text-xs text-[#111827] font-medium h-7"
+              />
+            </div>
+
+            {/* Action Trigger */}
+            <div className="md:col-span-1">
+              <button
+                id="action-btn"
+                type="button"
+                onClick={handleSave}
+                className={`w-full py-1 rounded font-bold text-xs text-white shadow-xs transition-colors cursor-pointer select-none h-7 flex items-center justify-center gap-1 ${
+                  formData.id ? 'bg-[#10B981] hover:bg-[#0D9465]' : 'bg-[#D4AF37] hover:bg-[#B7952F]'
+                }`}
+              >
+                <span>{formData.id ? 'Update' : 'Add'}</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Success Alert Banner */}
         {successMsg && (
-          <div className="bg-success-custom/10 border border-success-custom/25 p-3 rounded flex items-center space-x-2 text-xs text-text-main animate-in fade-in duration-200">
-            <CheckCircle className="w-4 h-4 text-success-custom flex-shrink-0" />
+          <div className="bg-[#10B981]/10 border border-[#10B981]/25 p-3 rounded flex items-center space-x-2 text-xs text-[#111827] animate-in fade-in duration-200 select-none">
+            <CheckCircle className="w-4 h-4 text-[#10B981] flex-shrink-0" />
             <span className="font-bold">{successMsg}</span>
           </div>
         )}
 
-        {/* Real-time aggregates summary cards */}
+        {/* Summary Aggregates Header Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 select-none">
-          <div className="bg-card-bg/60 backdrop-blur-md border border-border-custom p-3.5 rounded-md shadow-xs flex items-center space-x-3.5">
-            <div className="w-8 h-8 rounded bg-primary-gold/10 flex items-center justify-center font-bold text-primary-gold text-xs shadow-inner">G</div>
+          <div className="bg-white border border-[#D9D9D9] p-3.5 rounded shadow-xs flex items-center space-x-3">
+            <div className="w-8 h-8 rounded bg-[#D4AF37]/10 flex items-center justify-center font-bold text-[#D4AF37] text-xs">G</div>
             <div>
-              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block leading-none">Gross Weight</span>
-              <span className="text-sm font-bold text-text-main block mt-1">{totals.gross} g</span>
+              <span className="text-[9px] font-bold text-gray-500 uppercase block leading-none">Total Gross Weight</span>
+              <span className="text-sm font-bold text-[#111827] block mt-1">{totals.gross} g</span>
             </div>
           </div>
-          <div className="bg-card-bg/60 backdrop-blur-md border border-border-custom p-3.5 rounded-md shadow-xs flex items-center space-x-3.5">
-            <div className="w-8 h-8 rounded bg-text-muted/10 flex items-center justify-center font-bold text-text-muted text-xs shadow-inner">S</div>
+          <div className="bg-white border border-[#D9D9D9] p-3.5 rounded shadow-xs flex items-center space-x-3">
+            <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-xs">S</div>
             <div>
-              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block leading-none">Stone Deduction</span>
-              <span className="text-sm font-bold text-text-main block mt-1">{totals.stone} g</span>
+              <span className="text-[9px] font-bold text-gray-500 uppercase block leading-none">Total Stone Weight</span>
+              <span className="text-sm font-bold text-[#111827] block mt-1">{totals.stone} g</span>
             </div>
           </div>
-          <div className="bg-card-bg/60 backdrop-blur-md border border-border-custom p-3.5 rounded-md shadow-xs flex items-center space-x-3.5">
-            <div className="w-8 h-8 rounded bg-success-custom/10 flex items-center justify-center font-bold text-success-custom text-xs shadow-inner">N</div>
+          <div className="bg-white border border-[#D9D9D9] p-3.5 rounded shadow-xs flex items-center space-x-3">
+            <div className="w-8 h-8 rounded bg-[#10B981]/10 flex items-center justify-center font-bold text-[#10B981] text-xs">N</div>
             <div>
-              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block leading-none">Net Weight</span>
-              <span className="text-sm font-bold text-text-main block mt-1">{totals.net} g</span>
+              <span className="text-[9px] font-bold text-gray-500 uppercase block leading-none">Total Net Weight</span>
+              <span className="text-sm font-bold text-[#111827] block mt-1">{totals.net} g</span>
             </div>
           </div>
-          <div className="bg-card-bg/60 backdrop-blur-md border border-border-custom p-3.5 rounded-md shadow-xs flex items-center space-x-3.5">
-            <div className="w-8 h-8 rounded bg-warning-custom/10 flex items-center justify-center font-bold text-warning-custom text-xs shadow-inner">P</div>
+          <div className="bg-white border border-[#D9D9D9] p-3.5 rounded shadow-xs flex items-center space-x-3">
+            <div className="w-8 h-8 rounded bg-[#D4AF37]/15 flex items-center justify-center font-bold text-[#D4AF37] text-xs">F</div>
             <div>
-              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block leading-none">Total Purity</span>
-              <span className="text-sm font-bold text-text-main block mt-1">{totals.purity} g</span>
+              <span className="text-[9px] font-bold text-gray-500 uppercase block leading-none">Total Fine Gold</span>
+              <span className="text-sm font-bold text-[#111827] block mt-1">{totals.fine} g</span>
             </div>
           </div>
         </div>
 
-        {/* Ledger grid board */}
-        <div className="flex-1 bg-card-bg border border-border-custom rounded-md shadow-lg flex flex-col overflow-hidden relative">
-          
-          <div className="flex-1 overflow-y-auto scrollbar-thin">
-            <table className="w-full text-left text-xs border-collapse relative">
-              
-              {/* Sticky header */}
-              <thead className="sticky top-0 bg-sidebar-bg/95 backdrop-blur-sm z-20 border-b border-border-custom shadow-xs">
-                <tr className="text-[10px] font-bold text-text-muted uppercase tracking-wider select-none">
-                  <th className="p-3 pl-4 w-[11%]">Date</th>
-                  <th className="p-3 w-[15%]">Client Name</th>
-                  <th className="p-3 w-[11%]">Type</th>
-                  <th className="p-3 text-right w-[11%]">Gross Wt (g)</th>
-                  <th className="p-3 text-right w-[11%]">Stone Wt (g)</th>
-                  <th className="p-3 text-right w-[11%] bg-success-custom/[0.02]">Net Wt (g)</th>
-                  <th className="p-3 text-center w-[10%]">Touch (%)</th>
-                  <th className="p-3 text-right w-[12%] bg-warning-custom/[0.02]">Purity (g)</th>
-                  <th className="p-3">Voucher Notes</th>
-                  <th className="p-3 text-center pr-4 w-[5%]">Delete</th>
+        {/* Section 2 — Ledger Table */}
+        <div className="bg-white border border-[#D9D9D9] rounded shadow-sm flex flex-col overflow-hidden">
+          <div className="p-3 border-b border-[#D9D9D9] bg-gray-50 flex justify-between items-center select-none">
+            <div>
+              <h2 className="text-xs font-bold text-[#111827]">Voucher History Records</h2>
+              <p className="text-[10px] text-gray-500 mt-0.5">Double click / click row, and press Ctrl+E to edit, or Ctrl+Delete to remove records.</p>
+            </div>
+            {selectedRowId && (
+              <span className="text-[9px] font-bold text-[#D4AF37] uppercase tracking-wider bg-[#D4AF37]/10 px-2 py-0.5 rounded animate-pulse">
+                Row Selected
+              </span>
+            )}
+          </div>
+
+          <div className="overflow-x-auto max-h-[50vh] scrollbar-thin">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="sticky top-0 bg-gray-50 z-20 border-b border-[#D9D9D9]">
+                <tr className="text-[9px] font-bold text-gray-500 uppercase select-none">
+                  <th className="p-2.5 pl-4 w-[11%]">Date</th>
+                  <th className="p-2.5 w-[20%]">Client Name</th>
+                  <th className="p-2.5 text-right w-[11%]">Gross Wt (g)</th>
+                  <th className="p-2.5 text-right w-[11%]">Stone Wt (g)</th>
+                  <th className="p-2.5 text-right w-[11%]">Net Wt (g)</th>
+                  <th className="p-2.5 text-center w-[10%]">Touch (%)</th>
+                  <th className="p-2.5 text-right w-[12%]">Fine Gold (g)</th>
+                  <th className="p-2.5">Notes</th>
+                  <th className="p-2.5 text-center pr-4 w-[8%]">Actions</th>
                 </tr>
               </thead>
-
-              {/* Grid rows list */}
-              <tbody className="divide-y divide-border-custom/50 font-medium">
-                {filteredRows.length > 0 ? (
-                  filteredRows.map((row, idx) => {
-                    const isRowFocused = row.id === activeRowId;
+              <tbody className="divide-y divide-[#D9D9D9]/50 font-medium">
+                {gridRows.length > 0 ? (
+                  gridRows.map((row) => {
+                    const isSelected = row.id === selectedRowId;
+                    const clientObj = accounts.find(c => c.id === row.accountId);
+                    const clientName = clientObj ? clientObj.name : 'Unknown';
+                    
                     return (
                       <tr 
                         key={row.id}
-                        className={`transition-colors duration-100 ${
-                          isRowFocused ? 'bg-primary-gold/[0.02]' : 'hover:bg-bg-app/40'
+                        onClick={() => setSelectedRowId(row.id)}
+                        className={`transition-colors border-l-2 ${
+                          isSelected 
+                            ? 'bg-[#D4AF37]/5 border-[#D4AF37]' 
+                            : 'hover:bg-gray-50/70 border-transparent odd:bg-[#FDFDFD]'
                         }`}
                       >
-                        {/* 0. Date */}
-                        <td className="p-1 pl-4">
-                          <input 
-                            id={`cell-${idx}-0`}
-                            type="date"
-                            value={row.date}
-                            onChange={(e) => handleCellChange(idx, 'date', e.target.value)}
-                            onFocus={() => handleFocus(row)}
-                            onBlur={() => handleBlur(idx)}
-                            onKeyDown={(e) => handleKeyDown(e, idx, 0, false)}
-                            className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-text-main font-mono"
-                          />
+                        {/* 1. Date */}
+                        <td className="p-2.5 pl-4 font-mono text-gray-500">
+                          {new Date(row.date).toLocaleDateString()}
                         </td>
 
-                        {/* 1. Client Name select */}
-                        <td className="p-1">
-                          <select
-                            id={`cell-${idx}-1`}
-                            value={row.accountId}
-                            onChange={(e) => handleCellChange(idx, 'accountId', e.target.value)}
-                            onFocus={() => handleFocus(row)}
-                            onBlur={() => handleBlur(idx)}
-                            onKeyDown={(e) => handleKeyDown(e, idx, 1, false)}
-                            className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-text-main font-semibold appearance-none cursor-pointer"
-                          >
-                            {accounts.map(acc => (
-                              <option key={acc.id} value={acc.id} className="bg-sidebar-bg text-text-main">
-                                {acc.name}
-                              </option>
-                            ))}
-                          </select>
+                        {/* 2. Client Name + Type Badge */}
+                        <td className="p-2.5 font-bold text-[#111827]">
+                          <div className="flex items-center space-x-1.5">
+                            <span>{clientName}</span>
+                            <span className={`px-1 py-0.2 text-[8px] rounded font-bold ${
+                              row.particular === 'Sale' 
+                                ? 'bg-[#EF4444]/10 text-[#EF4444]' 
+                                : 'bg-[#10B981]/10 text-[#10B981]'
+                            }`}>
+                              {row.particular}
+                            </span>
+                          </div>
                         </td>
 
-                        {/* 2. Type select */}
-                        <td className="p-1">
-                          <select
-                            id={`cell-${idx}-2`}
-                            value={row.particular}
-                            onChange={(e) => handleCellChange(idx, 'particular', e.target.value)}
-                            onFocus={() => handleFocus(row)}
-                            onBlur={() => handleBlur(idx)}
-                            onKeyDown={(e) => handleKeyDown(e, idx, 2, false)}
-                            className={`w-full bg-transparent p-1.5 focus:outline-none border-0 font-bold appearance-none cursor-pointer ${
-                              row.particular === 'Sale' ? 'text-danger-custom' : 'text-success-custom'
-                            }`}
-                          >
-                            <option value="WT RCVD" className="bg-sidebar-bg text-success-custom">WT RCVD</option>
-                            <option value="Sale" className="bg-sidebar-bg text-danger-custom">Sale</option>
-                            <option value="Adjustment" className="bg-sidebar-bg text-warning-custom">Adjustment</option>
-                            <option value="Opening Balance" className="bg-sidebar-bg text-text-main">Opening Bal</option>
-                          </select>
+                        {/* 3. Gross Weight */}
+                        <td className="p-2.5 text-right text-gray-900 font-bold">
+                          {row.grossWeight.toFixed(2)}
                         </td>
 
-                        {/* 3. Gross Wt input */}
-                        <td className="p-1">
-                          <input 
-                            id={`cell-${idx}-3`}
-                            type="number"
-                            step="any"
-                            value={row.grossWeight === 0 ? '' : row.grossWeight}
-                            onChange={(e) => handleCellChange(idx, 'grossWeight', e.target.value)}
-                            onFocus={() => handleFocus(row)}
-                            onBlur={() => handleBlur(idx)}
-                            onKeyDown={(e) => handleKeyDown(e, idx, 3, false)}
-                            className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-right text-text-main font-bold placeholder-text-muted/40"
-                            placeholder="0.00"
-                          />
+                        {/* 4. Stone Weight */}
+                        <td className="p-2.5 text-right text-gray-500">
+                          {row.stoneWeight.toFixed(2)}
                         </td>
 
-                        {/* 4. Stone Wt input */}
-                        <td className="p-1">
-                          <input 
-                            id={`cell-${idx}-4`}
-                            type="number"
-                            step="any"
-                            value={row.stoneWeight}
-                            onChange={(e) => handleCellChange(idx, 'stoneWeight', e.target.value)}
-                            onFocus={() => handleFocus(row)}
-                            onBlur={() => handleBlur(idx)}
-                            onKeyDown={(e) => handleKeyDown(e, idx, 4, false)}
-                            className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-right text-text-muted"
-                          />
+                        {/* 5. Net Weight */}
+                        <td className="p-2.5 text-right text-gray-900 font-bold">
+                          {row.netWeight.toFixed(2)}
                         </td>
 
-                        {/* 5. Net Wt display (read-only) */}
-                        <td className="p-1 bg-success-custom/[0.01]">
-                          <input 
-                            id={`cell-${idx}-5`}
-                            type="number"
-                            value={row.netWeight.toFixed(2)}
-                            readOnly
-                            onFocus={() => handleFocus(row)}
-                            onBlur={() => handleBlur(idx)}
-                            onKeyDown={(e) => handleKeyDown(e, idx, 5, false)}
-                            className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-right font-bold text-success-custom cursor-default"
-                          />
+                        {/* 6. Touch */}
+                        <td className="p-2.5 text-center text-[#D4AF37] font-bold">
+                          {row.touch.toFixed(2)}%
                         </td>
 
-                        {/* 6. Touch input */}
-                        <td className="p-1">
-                          <input 
-                            id={`cell-${idx}-6`}
-                            type="number"
-                            step="any"
-                            value={row.touch}
-                            onChange={(e) => handleCellChange(idx, 'touch', e.target.value)}
-                            onFocus={() => handleFocus(row)}
-                            onBlur={() => handleBlur(idx)}
-                            onKeyDown={(e) => handleKeyDown(e, idx, 6, false)}
-                            className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-center font-bold text-primary-gold"
-                          />
+                        {/* 7. Fine Gold */}
+                        <td className="p-2.5 text-right text-gray-900 font-extrabold">
+                          {row.purity.toFixed(3)}
                         </td>
 
-                        {/* 7. Purity display (read-only) */}
-                        <td className="p-1 bg-warning-custom/[0.01]">
-                          <input 
-                            id={`cell-${idx}-7`}
-                            type="number"
-                            value={row.purity.toFixed(3)}
-                            readOnly
-                            onFocus={() => handleFocus(row)}
-                            onBlur={() => handleBlur(idx)}
-                            onKeyDown={(e) => handleKeyDown(e, idx, 7, false)}
-                            className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-right font-bold text-warning-custom cursor-default"
-                          />
+                        {/* 8. Notes */}
+                        <td className="p-2.5 text-gray-500 italic max-w-[200px] truncate">
+                          {row.notes}
                         </td>
 
-                        {/* 8. Notes input */}
-                        <td className="p-1">
-                          <input 
-                            id={`cell-${idx}-8`}
-                            type="text"
-                            value={row.notes}
-                            onChange={(e) => handleCellChange(idx, 'notes', e.target.value)}
-                            onFocus={() => handleFocus(row)}
-                            onBlur={() => handleBlur(idx)}
-                            onKeyDown={(e) => handleKeyDown(e, idx, 8, false)}
-                            className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-text-main placeholder-text-muted/40 font-medium"
-                            placeholder="Add memo notes..."
-                          />
-                        </td>
-
-                        {/* Delete action */}
-                        <td className="p-1 text-center pr-4">
-                          <button
-                            onClick={async () => {
-                              if (confirm('Are you sure you want to delete this ledger row record?')) {
-                                await deleteLedgerRow(row.accountId, row.id);
-                              }
-                            }}
-                            className="p-1.5 rounded hover:bg-danger-custom/10 text-danger-custom transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                        {/* 9. Action triggers */}
+                        <td className="p-2.5 text-center pr-4">
+                          <div className="flex items-center justify-center space-x-2">
+                            <button
+                              onClick={() => {
+                                setEditPopupRow(row);
+                                setShowEditPopup(true);
+                              }}
+                              className="p-1 rounded text-gray-400 hover:text-[#10B981] hover:bg-[#10B981]/5 transition-colors cursor-pointer"
+                              title="Edit Row record"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDeletePopupRow(row);
+                                setShowDeletePopup(true);
+                              }}
+                              className="p-1 rounded text-gray-400 hover:text-[#EF4444] hover:bg-[#EF4444]/5 transition-colors cursor-pointer"
+                              title="Delete Row record"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
 
                       </tr>
@@ -653,205 +798,104 @@ export default function TransactionsPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={10} className="p-8 text-center text-text-muted font-bold select-none">
-                      No records matched. Enter weight values below to start logging vouchers.
+                    <td colSpan={9} className="p-8 text-center text-gray-500 select-none">
+                      No voucher transactions logged. Enter a new weight record at the top console to begin.
                     </td>
                   </tr>
                 )}
-
-                {/* FAST ENTRY BLANK ROW AT THE BOTTOM */}
-                <tr className="bg-primary-gold/[0.01] border-t-2 border-primary-gold/10">
-                  {/* Date */}
-                  <td className="p-1 pl-4">
-                    <input 
-                      id={`cell-${filteredRows.length}-0`}
-                      type="date"
-                      value={newRowData.date}
-                      onChange={(e) => setNewRowData(prev => ({ ...prev, date: e.target.value }))}
-                      onFocus={handleFocusNewRow}
-                      onKeyDown={(e) => handleKeyDown(e, filteredRows.length, 0, true)}
-                      className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-text-main font-mono"
-                    />
-                  </td>
-
-                  {/* Client Select */}
-                  <td className="p-1">
-                    <select
-                      id={`cell-${filteredRows.length}-1`}
-                      value={selectedClientFilter === 'All' ? newRowData.accountId : selectedClientFilter}
-                      onChange={(e) => setNewRowData(prev => ({ ...prev, accountId: e.target.value }))}
-                      onFocus={handleFocusNewRow}
-                      onKeyDown={(e) => handleKeyDown(e, filteredRows.length, 1, true)}
-                      disabled={selectedClientFilter !== 'All'}
-                      className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-text-main font-semibold appearance-none cursor-pointer disabled:opacity-90 disabled:cursor-not-allowed"
-                    >
-                      {accounts.map(acc => (
-                        <option key={acc.id} value={acc.id} className="bg-sidebar-bg text-text-main">
-                          {acc.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-
-                  {/* Particular Category select */}
-                  <td className="p-1">
-                    <select
-                      id={`cell-${filteredRows.length}-2`}
-                      value={newRowData.particular}
-                      onChange={(e) => setNewRowData(prev => ({ ...prev, particular: e.target.value as LedgerRow['particular'] }))}
-                      onFocus={handleFocusNewRow}
-                      onKeyDown={(e) => handleKeyDown(e, filteredRows.length, 2, true)}
-                      className={`w-full bg-transparent p-1.5 focus:outline-none border-0 font-bold appearance-none cursor-pointer ${
-                        newRowData.particular === 'Sale' ? 'text-danger-custom' : 'text-success-custom'
-                      }`}
-                    >
-                      <option value="WT RCVD" className="bg-sidebar-bg text-success-custom">WT RCVD</option>
-                      <option value="Sale" className="bg-sidebar-bg text-danger-custom">Sale</option>
-                      <option value="Adjustment" className="bg-sidebar-bg text-warning-custom">Adjustment</option>
-                      <option value="Opening Balance" className="bg-sidebar-bg text-text-main">Opening Bal</option>
-                    </select>
-                  </td>
-
-                  {/* Gross Weight */}
-                  <td className="p-1">
-                    <input 
-                      id={`cell-${filteredRows.length}-3`}
-                      type="number"
-                      step="any"
-                      value={newRowData.grossWeight}
-                      onChange={(e) => setNewRowData(prev => ({ ...prev, grossWeight: e.target.value }))}
-                      onFocus={handleFocusNewRow}
-                      onKeyDown={(e) => handleKeyDown(e, filteredRows.length, 3, true)}
-                      className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-right text-text-main font-bold placeholder-primary-gold/40 border-b border-dashed border-primary-gold/30 focus:border-solid focus:border-b-0"
-                      placeholder="Enter Gross"
-                    />
-                  </td>
-
-                  {/* Stone Weight */}
-                  <td className="p-1">
-                    <input 
-                      id={`cell-${filteredRows.length}-4`}
-                      type="number"
-                      step="any"
-                      value={newRowData.stoneWeight}
-                      onChange={(e) => setNewRowData(prev => ({ ...prev, stoneWeight: e.target.value }))}
-                      onFocus={handleFocusNewRow}
-                      onKeyDown={(e) => handleKeyDown(e, filteredRows.length, 4, true)}
-                      className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-right text-text-muted"
-                    />
-                  </td>
-
-                  {/* Net Weight Display */}
-                  <td className="p-1 bg-success-custom/[0.01]">
-                    <input 
-                      id={`cell-${filteredRows.length}-5`}
-                      type="number"
-                      value={newNetWeight.toFixed(2)}
-                      readOnly
-                      onFocus={handleFocusNewRow}
-                      onKeyDown={(e) => handleKeyDown(e, filteredRows.length, 5, true)}
-                      className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-right font-bold text-success-custom cursor-default"
-                    />
-                  </td>
-
-                  {/* Touch input */}
-                  <td className="p-1">
-                    <input 
-                      id={`cell-${filteredRows.length}-6`}
-                      type="number"
-                      step="any"
-                      value={newRowData.touch}
-                      onChange={(e) => setNewRowData(prev => ({ ...prev, touch: e.target.value }))}
-                      onFocus={handleFocusNewRow}
-                      onKeyDown={(e) => handleKeyDown(e, filteredRows.length, 6, true)}
-                      className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-center font-bold text-primary-gold"
-                    />
-                  </td>
-
-                  {/* Purity Display */}
-                  <td className="p-1 bg-warning-custom/[0.01]">
-                    <input 
-                      id={`cell-${filteredRows.length}-7`}
-                      type="number"
-                      value={newPurityVal.toFixed(3)}
-                      readOnly
-                      onFocus={handleFocusNewRow}
-                      onKeyDown={(e) => handleKeyDown(e, filteredRows.length, 7, true)}
-                      className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-right font-bold text-warning-custom cursor-default"
-                    />
-                  </td>
-
-                  {/* Notes memo */}
-                  <td className="p-1">
-                    <input 
-                      id={`cell-${filteredRows.length}-8`}
-                      type="text"
-                      value={newRowData.notes}
-                      onChange={(e) => setNewRowData(prev => ({ ...prev, notes: e.target.value }))}
-                      onFocus={handleFocusNewRow}
-                      onKeyDown={(e) => handleKeyDown(e, filteredRows.length, 8, true)}
-                      className="w-full bg-transparent p-1.5 focus:outline-none border-0 text-text-main placeholder-text-muted/40 font-medium"
-                      placeholder="Add memo notes..."
-                    />
-                  </td>
-
-                  {/* Save row action */}
-                  <td className="p-1 text-center pr-4">
-                    <button
-                      onClick={handleCreateNewRowFromGrid}
-                      className="px-2 py-1 text-[10px] bg-primary-gold hover:opacity-90 font-bold text-white rounded shadow-xs transition-opacity cursor-pointer whitespace-nowrap"
-                    >
-                      Save Row
-                    </button>
-                  </td>
-
-                </tr>
               </tbody>
-
-              {/* Sticky bottom totals footer */}
-              <tfoot className="sticky bottom-0 bg-sidebar-bg/95 backdrop-blur-sm z-20 border-t-2 border-primary-gold/60 shadow-lg">
-                <tr className="text-text-main font-bold select-none">
-                  <td colSpan={3} className="p-3 pl-5 text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                    Total Sheets Summary
-                  </td>
-                  <td className="p-3 text-right text-text-main font-bold border-r border-border-custom/50">
-                    {totals.gross}
-                  </td>
-                  <td className="p-3 text-right text-text-muted font-semibold border-r border-border-custom/50">
-                    {totals.stone}
-                  </td>
-                  <td className="p-3 text-right text-success-custom font-extrabold bg-success-custom/[0.02] border-r border-border-custom/50">
-                    {totals.net}
-                  </td>
-                  <td className="p-3 text-center text-text-muted font-medium border-r border-border-custom/50">
-                    —
-                  </td>
-                  <td className="p-3 text-right text-warning-custom font-extrabold bg-warning-custom/[0.02] border-r border-border-custom/50">
-                    {totals.purity}
-                  </td>
-                  <td colSpan={2} className="p-3 text-text-muted text-[10px] italic font-medium">
-                    Consolidated Jewellery Ledger
-                  </td>
-                </tr>
-              </tfoot>
-
             </table>
           </div>
-
         </div>
 
-        {/* Informative usage guidelines */}
-        <div className="flex items-start space-x-2 bg-primary-gold/5 border border-primary-gold/20 p-3 rounded-md text-xs text-text-main select-none">
-          <Info className="w-4 h-4 text-primary-gold flex-shrink-0 mt-0.5" />
+        {/* Keyboard Instructions Info Bar */}
+        <div className="bg-[#D4AF37]/5 border border-[#D4AF37]/25 p-3.5 rounded flex items-start space-x-2.5 select-none text-xs">
+          <Info className="w-4 h-4 text-[#D4AF37] flex-shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <span className="font-bold text-primary-gold block">Keyboard Navigation Instructions:</span>
-            <span className="text-text-muted leading-relaxed block">
-              • Navigate cells with <span className="font-semibold text-text-main">Arrow keys</span>.<br />
-              • Press <span className="font-semibold text-text-main">Enter</span> on the Touch or Notes field of the bottom row to quickly post a transaction and start the next.<br />
-              • Editing is auto-saved directly when you change cells or press Enter.
+            <span className="font-bold text-[#D4AF37] block">Operator Keyboard Shortcuts:</span>
+            <span className="text-gray-500 leading-relaxed block">
+              • Press <span className="font-semibold text-gray-700">Enter / Tab</span> to shift focus forward between entry inputs.<br />
+              • Press <span className="font-semibold text-gray-700">Enter</span> on the Notes field to save/update immediately.<br />
+              • Press <span className="font-semibold text-gray-700">ESC</span> to reset the console inputs.<br />
+              • Select any table row and press <span className="font-semibold text-gray-700">Ctrl + E</span> to edit, or <span className="font-semibold text-gray-700">Ctrl + Delete</span> to delete.
             </span>
           </div>
         </div>
+
+        {/* ==================== POPUP DIALOGS ==================== */}
+
+        {/* Edit Confirmation Modal */}
+        {showEditPopup && editPopupRow && (
+          <div className="fixed inset-0 bg-black/45 z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-[#D9D9D9] rounded-md shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-100">
+              <div className="p-3 border-b border-[#D9D9D9] bg-gray-50 flex justify-between items-center select-none">
+                <span className="font-bold text-xs text-[#111827]">Edit Transaction</span>
+                <button 
+                  onClick={() => setShowEditPopup(false)}
+                  className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-4 space-y-4 text-xs">
+                <p className="text-gray-600 font-medium">
+                  Do you want to edit this transaction? This will populate the Entry Row console with its parameters.
+                </p>
+                <div className="flex justify-end gap-2 pt-2 border-t border-[#D9D9D9]">
+                  <button 
+                    onClick={() => setShowEditPopup(false)}
+                    className="px-4 py-1.5 border border-[#D9D9D9] rounded font-bold text-gray-500 hover:text-gray-700 bg-white cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleConfirmEdit}
+                    className="px-4 py-1.5 bg-[#D4AF37] hover:bg-[#B7952F] rounded font-bold text-white shadow-xs cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeletePopup && deletePopupRow && (
+          <div className="fixed inset-0 bg-black/45 z-50 flex items-center justify-center p-4">
+            <div className="bg-white border border-[#D9D9D9] rounded-md shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-100">
+              <div className="p-3 border-b border-[#D9D9D9] bg-gray-50 flex justify-between items-center select-none">
+                <span className="font-bold text-xs text-[#EF4444]">Delete Transaction</span>
+                <button 
+                  onClick={() => setShowDeletePopup(false)}
+                  className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-4 space-y-4 text-xs">
+                <p className="text-gray-600 font-medium leading-relaxed">
+                  Are you sure you want to delete this transaction?<br />
+                  <span className="font-bold text-[#EF4444]">This action cannot be undone.</span>
+                </p>
+                <div className="flex justify-end gap-2 pt-2 border-t border-[#D9D9D9]">
+                  <button 
+                    onClick={() => setShowDeletePopup(false)}
+                    className="px-4 py-1.5 border border-[#D9D9D9] rounded font-bold text-gray-500 hover:text-gray-700 bg-white cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleConfirmDelete}
+                    className="px-4 py-1.5 bg-[#EF4444] hover:bg-[#D93838] rounded font-bold text-white shadow-xs cursor-pointer"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </AppLayout>
